@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {Strings} from "./libraries/Strings.sol";
+import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
 
 contract Validator {
     enum Status {
@@ -12,27 +12,27 @@ contract Validator {
     }
 
     struct Token {
-        string tokenAddress;
+        bytes64 tokenAddress;
         uint256 tokenId;
         uint256 amount;
     }
 
     struct Order {
-        address user;
-        address filler;
+        bytes64 user;
+        bytes64 filler;
         Token[] inputs;
         Token[] outputs;
-        string sourceChain;
-        string destinationChain;
+        uint256 sourceChainSelector;
+        uint256 destinationChainSelector;
         bool sponsored;
         uint256 primaryFillerDeadline;
         uint256 deadline;
         bytes signature;
     }
 
-    bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(address tokenAddress,uint256 tokenId,uint256 amount)");
+    bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
     bytes32 public constant ORDER_TYPEHASH = keccak256(
-        "Order(address user,address filler,bytes32 inputsHash,bytes32 outputsHash,string sourceChain,string destinationChain,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline)"
+        "Order(bytes64 user,bytes64 filler,bytes32 inputsHash,bytes32 outputsHash,uint256 sourceChainSelector,uint256 destinationChainSelector,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline)"
     );
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,address verifyingContract,uint256 chainId)");
@@ -68,8 +68,8 @@ contract Validator {
                 order.filler,
                 inputsHash,
                 outputsHash,
-                order.sourceChain,
-                order.destinationChain,
+                order.sourceChainSelector,
+                order.destinationChainSelector,
                 order.sponsored,
                 order.primaryFillerDeadline,
                 order.deadline
@@ -78,17 +78,17 @@ contract Validator {
     }
 
     function validateOrder(Order memory order) public view returns (bool) {
-        uint256 chainId = Strings.parseUint(order.sourceChain);
+        uint256 chainId = order.sourceChainSelector;
         bytes32 domainSeparator = computeDomainSeparator(chainId);
 
         bytes32 orderHash = hashOrder(order);
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, orderHash));
         address signer = ECDSA.recover(digest, order.signature);
 
-        return (signer == order.user);
+        return (signer == EquitoMessageLibrary.bytes64ToAddress(order.user));
     }
 
     function validateChain(Order memory order) public view returns (bool) {
-        return Strings.equal(order.sourceChain, Strings.toString(block.chainid));
+        return order.sourceChainSelector == block.chainid;
     }
 }

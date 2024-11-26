@@ -2,11 +2,12 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
+import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
 import {Validator} from "../src/Validator.sol";
 import {Orderbook} from "../src/Orderbook.sol";
 import {Settler} from "../src/Settler.sol";
-import {Strings} from "../src/libraries/Strings.sol";
-import {MockERC20} from "./MockERC20.sol";
+import {MockERC20} from "./mocks/MockERC20.sol";
+import {MockRouter} from "./mocks/MockRouter.sol";
 
 contract BaseTest is Test {
     // users
@@ -22,10 +23,12 @@ contract BaseTest is Test {
     Settler public immutable settler;
     MockERC20 public immutable inputToken;
     MockERC20 public immutable outputToken;
+    MockRouter public immutable router;
 
     constructor() {
-        orderbook = new Orderbook();
-        settler = new Settler();
+        router = new MockRouter();
+        orderbook = new Orderbook(address(router));
+        settler = new Settler(address(router));
         inputToken = new MockERC20("input", "INPUT");
         outputToken = new MockERC20("output", "OUTPUT");
 
@@ -37,6 +40,13 @@ contract BaseTest is Test {
         vm.label(address(settler), "SETTLER");
         vm.label(address(inputToken), "INPUT TOKEN");
         vm.label(address(outputToken), "OUTPUT TOKEN");
+        vm.label(address(router), "ROUTER");
+
+        uint256[] memory chainSelectors = new uint256[](1);
+        chainSelectors[0] = block.chainid;
+        bytes64[] memory addresses = new bytes64[](1);
+        addresses[0] = EquitoMessageLibrary.addressToBytes64(address(orderbook));
+        orderbook.setPeers(chainSelectors, addresses);
     }
 
     function buildOrder(
@@ -51,26 +61,25 @@ contract BaseTest is Test {
     ) public view returns (Validator.Order memory order) {
         Validator.Token[] memory inputs = new Validator.Token[](1);
         inputs[0] = Validator.Token({
-            tokenAddress: Strings.toChecksumHexString(address(fromToken)),
+            tokenAddress: EquitoMessageLibrary.addressToBytes64(address(fromToken)),
             tokenId: type(uint256).max,
             amount: inputAmount
         });
 
         Validator.Token[] memory outputs = new Validator.Token[](1);
         outputs[0] = Validator.Token({
-            tokenAddress: Strings.toChecksumHexString(address(toToken)),
+            tokenAddress: EquitoMessageLibrary.addressToBytes64(address(toToken)),
             tokenId: type(uint256).max,
             amount: outputAmount
         });
 
-        string memory chain = Strings.toString(block.chainid);
         order = Validator.Order({
-            user: user,
-            filler: address(this),
+            user: EquitoMessageLibrary.addressToBytes64(user),
+            filler: EquitoMessageLibrary.addressToBytes64(address(this)),
             inputs: inputs,
             outputs: outputs,
-            sourceChain: chain,
-            destinationChain: chain,
+            sourceChainSelector: block.chainid,
+            destinationChainSelector: block.chainid,
             sponsored: false,
             primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
             deadline: block.timestamp + deadlineOffset,

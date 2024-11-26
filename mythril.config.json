@@ -2,7 +2,8 @@
   "remappings": [
     "ds-test/=lib/ds-test/src/",
     "forge-std/=lib/forge-std/src/",
-    "@openzeppelin/=lib/openzeppelin-contracts/"
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@equito-network/=lib/equito-evm-contracts/src/"
   ],
   "optimizer": {
     "enabled": true,

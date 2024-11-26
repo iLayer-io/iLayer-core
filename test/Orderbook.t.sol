@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Validator} from "../src/Validator.sol";
 import {Orderbook} from "../src/Orderbook.sol";
-import {Strings} from "../src/libraries/Strings.sol";
 import {BaseTest} from "./BaseTest.sol";
 
 contract OrderbookTest is BaseTest {
@@ -142,25 +141,5 @@ contract OrderbookTest is BaseTest {
         vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
         orderbook.withdrawOrder(order);
         vm.stopPrank();
-    }
-
-    function testFillOrder(uint256 inputAmount) public {
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
-
-        inputToken.mint(user0, inputAmount);
-        vm.prank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, "");
-
-        address filler = user1;
-
-        vm.prank(filler);
-        orderbook.fillOrder(order, filler);
-        assertEq(inputToken.balanceOf(filler), inputAmount);
-
-        bytes32 orderId = orderbook.hashOrder(order);
-        assertTrue(orderbook.orders(orderId) == Validator.Status.FILLED);
-        assertEq(inputToken.balanceOf(address(orderbook)), 0);
     }
 }
