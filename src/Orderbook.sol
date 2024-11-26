@@ -2,44 +2,57 @@
 pragma solidity ^0.8.24;
 
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {OrderUtils} from "./libraries/OrderUtils.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {Validator} from "./Validator.sol";
 import {TransferUtils} from "./libraries/TransferUtils.sol";
 import {Strings} from "./libraries/Strings.sol";
 
-contract Orderbook {
+contract Orderbook is Validator {
     using SafeERC20 for IERC20;
 
-    mapping(bytes32 orderId => OrderUtils.Status status) public orders;
+    mapping(bytes32 orderId => Status status) public orders;
 
     event OrderCreated(
         bytes32 indexed orderId,
-        address creator,
+        address caller,
         address user,
         uint256 primaryFillerDeadline,
         uint256 deadline,
         string destinationChain
     );
-    event OrderWithdrawn(bytes32 indexed orderId, address user);
+    event OrderWithdrawn(bytes32 indexed orderId, address caller);
+    event OrderFilled(bytes32 indexed orderId, address caller, address indexed filler);
 
     error InvalidOrderSignature();
     error OrderDeadlinesMismatch();
     error OrderExpired();
     error OrderCannotBeWithdrawn();
+    error OrderCannotBeFilled();
     error Unauthorized();
+    error InvalidSourceChain();
 
-    function createOrder(OrderUtils.Order memory order) external {
-        if (!OrderUtils.validateOrder(order)) revert InvalidOrderSignature();
+    function createOrder(Order memory order, bytes memory permit) external {
+        if (!validateOrder(order)) revert InvalidOrderSignature();
+        if (!validateChain(order)) revert InvalidSourceChain();
 
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp > order.deadline) revert OrderExpired();
 
-        bytes32 orderId = OrderUtils.hashOrder(order);
-        orders[orderId] = OrderUtils.Status.ACTIVE;
+        bytes32 orderId = hashOrder(order);
+        orders[orderId] = Status.ACTIVE;
 
         for (uint256 i = 0; i < order.inputs.length; i++) {
-            OrderUtils.Value memory input = order.inputs[i];
+            Token memory input = order.inputs[i];
 
             address tokenAddress = Strings.parseAddress(input.tokenAddress);
+
+            if (permit.length > 0) {
+                // Decode the permit signature and call permit on the token
+                (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
+                    abi.decode(permit, (uint256, uint256, uint8, bytes32, bytes32));
+
+                IERC20Permit(tokenAddress).permit(order.user, address(this), value, deadline, v, r, s);
+            }
 
             if (input.tokenId != type(uint256).max) {
                 TransferUtils.transfer(order.user, address(this), tokenAddress, input.tokenId, input.amount);
@@ -53,18 +66,18 @@ contract Orderbook {
         );
     }
 
-    function withdrawOrder(OrderUtils.Order memory order) external {
-        if (!OrderUtils.validateOrder(order)) revert InvalidOrderSignature();
+    function withdrawOrder(Order memory order) external {
+        if (!validateOrder(order)) revert InvalidOrderSignature();
         if (order.user != msg.sender) revert Unauthorized();
 
-        bytes32 orderId = OrderUtils.hashOrder(order);
-        if (order.deadline < block.timestamp || orders[orderId] != OrderUtils.Status.ACTIVE) {
+        bytes32 orderId = hashOrder(order);
+        if (order.deadline > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
         }
-        orders[orderId] = OrderUtils.Status.WITHDRAWN;
+        orders[orderId] = Status.WITHDRAWN;
 
         for (uint256 i = 0; i < order.inputs.length; i++) {
-            OrderUtils.Value memory input = order.inputs[i];
+            Token memory input = order.inputs[i];
 
             address tokenAddress = Strings.parseAddress(input.tokenAddress);
             if (input.tokenId != type(uint256).max) {
@@ -75,5 +88,27 @@ contract Orderbook {
         }
 
         emit OrderWithdrawn(orderId, msg.sender);
+    }
+
+    function fillOrder(Order memory order, address filler) external {
+        if (!validateOrder(order)) revert InvalidOrderSignature();
+
+        // we don't check any deadline here cause we assume the Settler contract has done that already
+        bytes32 orderId = hashOrder(order);
+        if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
+        orders[orderId] = Status.FILLED;
+
+        for (uint256 i = 0; i < order.inputs.length; i++) {
+            Token memory input = order.inputs[i];
+
+            address tokenAddress = Strings.parseAddress(input.tokenAddress);
+            if (input.tokenId != type(uint256).max) {
+                TransferUtils.transfer(address(this), filler, tokenAddress, input.tokenId, input.amount);
+            } else {
+                IERC20(tokenAddress).safeTransfer(filler, input.amount);
+            }
+        }
+
+        emit OrderFilled(orderId, msg.sender, filler);
     }
 }
