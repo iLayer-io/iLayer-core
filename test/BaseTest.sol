@@ -45,8 +45,10 @@ contract BaseTest is Test {
         uint256[] memory chainSelectors = new uint256[](1);
         chainSelectors[0] = block.chainid;
         bytes64[] memory addresses = new bytes64[](1);
-        addresses[0] = EquitoMessageLibrary.addressToBytes64(address(orderbook));
+        addresses[0] = EquitoMessageLibrary.addressToBytes64(address(settler));
         orderbook.setPeers(chainSelectors, addresses);
+
+        settler.setOrderbook(block.chainid, address(orderbook));
     }
 
     function buildOrder(

@@ -17,8 +17,9 @@ contract Orderbook is Validator, EquitoApp {
         bytes32 indexed orderId, address caller, address user, uint256 primaryFillerDeadline, uint256 deadline
     );
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
-    event OrderFilled(bytes32 indexed orderId, address caller, address indexed filler);
+    event OrderFilled(bytes32 indexed orderId, address indexed caller, address indexed filler);
 
+    error InvalidTokenAmount();
     error InvalidOrderSignature();
     error OrderDeadlinesMismatch();
     error OrderExpired();
@@ -33,6 +34,7 @@ contract Orderbook is Validator, EquitoApp {
     function createOrder(Order memory order, bytes memory permit) external {
         if (!validateOrder(order)) revert InvalidOrderSignature();
         if (!validateChain(order)) revert InvalidSourceChain();
+        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
 
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp > order.deadline) revert OrderExpired();

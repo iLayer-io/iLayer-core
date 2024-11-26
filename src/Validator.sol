@@ -30,6 +30,7 @@ contract Validator {
         bytes signature;
     }
 
+    address public constant SHARED_VERIFIER_ADDRESS = address(1); // TODO Replace with a valid address
     bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
     bytes32 public constant ORDER_TYPEHASH = keccak256(
         "Order(bytes64 user,bytes64 filler,bytes32 inputsHash,bytes32 outputsHash,uint256 sourceChainSelector,uint256 destinationChainSelector,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline)"
@@ -37,10 +38,14 @@ contract Validator {
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,address verifyingContract,uint256 chainId)");
 
-    function computeDomainSeparator(uint256 chainId) public view returns (bytes32) {
+    function computeDomainSeparator(uint256 chainId) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                EIP712_DOMAIN_TYPEHASH, keccak256(bytes("iLayer")), keccak256(bytes("1")), address(this), chainId
+                EIP712_DOMAIN_TYPEHASH,
+                keccak256(bytes("iLayer")),
+                keccak256(bytes("1")),
+                SHARED_VERIFIER_ADDRESS,
+                chainId
             )
         );
     }

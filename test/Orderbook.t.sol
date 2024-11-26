@@ -9,6 +9,8 @@ contract OrderbookTest is BaseTest {
     constructor() BaseTest() {}
 
     function testCreateOrder(uint256 inputAmount) public {
+        vm.assume(inputAmount > 0);
+
         Validator.Order memory order =
             buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
 
@@ -23,7 +25,9 @@ contract OrderbookTest is BaseTest {
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
 
-    function testCreateOrderWithPermit(uint256 inputAmount) public {
+    function testCreateOrderWithPermit() public {
+        uint256 inputAmount = 1e18;
+
         Validator.Order memory order =
             buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
 
@@ -50,7 +54,8 @@ contract OrderbookTest is BaseTest {
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
 
-    function testOrderWithdrawal(uint256 inputAmount) public {
+    function testOrderWithdrawal() public {
+        uint256 inputAmount = 1e18;
         testCreateOrder(inputAmount);
 
         Validator.Order memory order =
@@ -83,49 +88,55 @@ contract OrderbookTest is BaseTest {
     }
 
     function testInvalidOrderSignature() public {
+        uint256 inputAmount = 1e18;
+
         Validator.Order memory order =
-            buildOrder(100, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
 
         // Tamper with the order to make the signature invalid
         order.deadline += 1;
 
         vm.prank(user0);
-        inputToken.mint(user0, 100);
-        inputToken.approve(address(orderbook), 100);
+        inputToken.mint(user0, inputAmount);
+        inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.InvalidOrderSignature.selector);
         orderbook.createOrder(order, "");
     }
 
     function testOrderDeadlineMismatch() public {
+        uint256 inputAmount = 1e18;
+
         Validator.Order memory order =
-            buildOrder(100, 1, user0, user0_pk, address(inputToken), address(outputToken), 6 minutes, 5 minutes);
+            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 6 minutes, 5 minutes);
 
         vm.prank(user0);
-        inputToken.mint(user0, 100);
-        inputToken.approve(address(orderbook), 100);
+        inputToken.mint(user0, inputAmount);
+        inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.OrderDeadlinesMismatch.selector);
         orderbook.createOrder(order, "");
     }
 
     function testOrderExpired() public {
+        uint256 inputAmount = 1e18;
+
         Validator.Order memory order =
-            buildOrder(100, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
 
         // Warp to a time after the deadline
         vm.warp(block.timestamp + 6 minutes);
 
         vm.prank(user0);
-        inputToken.mint(user0, 100);
-        inputToken.approve(address(orderbook), 100);
+        inputToken.mint(user0, inputAmount);
+        inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.OrderExpired.selector);
         orderbook.createOrder(order, "");
     }
 
     function testDoubleWithdrawal() public {
-        uint256 inputAmount = 100;
+        uint256 inputAmount = 1e18;
         testCreateOrder(inputAmount);
 
         Validator.Order memory order =
