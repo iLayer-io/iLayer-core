@@ -95,9 +95,7 @@ contract Orderbook is Validator, EquitoApp {
         if (
             EquitoMessageLibrary.bytes64ToAddress(bytes64(message.receiver.lower, message.receiver.upper))
                 != address(this)
-        ) {
-            revert("InvalidMessage");
-        }
+        ) revert InvalidMessage();
 
         (Order memory order, address filler) = abi.decode(messageData, (Order, address));
         _fillOrder(order, filler);
