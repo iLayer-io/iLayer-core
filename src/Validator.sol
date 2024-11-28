@@ -27,13 +27,15 @@ contract Validator {
         bool sponsored;
         uint256 primaryFillerDeadline;
         uint256 deadline;
+        address callRecipient;
+        bytes callData;
         bytes signature;
     }
 
     address public constant SHARED_VERIFIER_ADDRESS = address(1); // TODO Replace with a valid address
     bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
     bytes32 public constant ORDER_TYPEHASH = keccak256(
-        "Order(bytes64 user,bytes64 filler,bytes32 inputsHash,bytes32 outputsHash,uint256 sourceChainSelector,uint256 destinationChainSelector,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline)"
+        "Order(bytes64 user,bytes64 filler,bytes32 inputsHash,bytes32 outputsHash,uint256 sourceChainSelector,uint256 destinationChainSelector,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline,address callRecipient,bytes callData)"
     );
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,address verifyingContract,uint256 chainId)");
@@ -77,12 +79,14 @@ contract Validator {
                 order.destinationChainSelector,
                 order.sponsored,
                 order.primaryFillerDeadline,
-                order.deadline
+                order.deadline,
+                order.callRecipient,
+                order.callData
             )
         );
     }
 
-    function validateOrder(Order memory order) public view returns (bool) {
+    function validateOrder(Order memory order) public pure returns (bool) {
         uint256 chainId = order.sourceChainSelector;
         bytes32 domainSeparator = computeDomainSeparator(chainId);
 

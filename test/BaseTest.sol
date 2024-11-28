@@ -85,6 +85,8 @@ contract BaseTest is Test {
             sponsored: false,
             primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
             deadline: block.timestamp + deadlineOffset,
+            callRecipient: address(0),
+            callData: "",
             signature: ""
         });
 

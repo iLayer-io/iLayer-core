@@ -17,6 +17,8 @@ contract Settler is Validator, Ownable {
 
     event OrderbookUpdated(uint256 indexed chain, address indexed orderbook);
     event OrderFilled(bytes32 indexed orderId, address indexed caller, address indexed filler);
+    event CallDataExecuted(bytes32 indexed orderId, bool status, bytes message);
+    event CallDataFailed(bytes32 indexed orderId);
 
     error InsufficientFeesPaid();
     error InvalidOrderSignature();
@@ -65,6 +67,9 @@ contract Settler is Validator, Ownable {
         bytes memory data = abi.encode(order, msg.sender);
         bytes64 memory dest = EquitoMessageLibrary.addressToBytes64(orderbooks[order.sourceChainSelector]);
         router.sendMessage{value: msg.value}(bytes64(dest.lower, dest.upper), order.sourceChainSelector, data);
+
+        (bool success, bytes memory result) = order.callRecipient.call(order.callData);
+        emit CallDataExecuted(orderId, success, result);
 
         emit OrderFilled(orderId, msg.sender, filler);
     }
