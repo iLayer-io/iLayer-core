@@ -70,13 +70,15 @@ contract Settler is Validator, Ownable {
         bytes64 memory dest = EquitoMessageLibrary.addressToBytes64(orderbooks[order.sourceChainSelector]);
         router.sendMessage{value: msg.value}(bytes64(dest.lower, dest.upper), order.sourceChainSelector, data);
 
-        (bool success, bytes memory result) = order.callRecipient.excessivelySafeCall(
-            1200, // TODO fix this
-            0,
-            32,
-            order.callData
-        );
-        emit CallDataExecuted(orderId, success, result);
+        if(order.callData.length > 0) {
+            (bool success, bytes memory result) = order.callRecipient.excessivelySafeCall(
+                1200, // TODO fix this
+                0,
+                32,
+                order.callData
+            );
+            emit CallDataExecuted(orderId, success, result);
+        }
 
         emit OrderFilled(orderId, msg.sender, filler);
     }
