@@ -15,6 +15,7 @@ test = "test"
 remappings = [
   '@openzeppelin/=lib/openzeppelin-contracts/',
   '@equito-network/=lib/equito-evm-contracts/src/',
+  '@safecall=lib/ExcessivelySafeCall/src/'
 ]
 
 [profile.ci]

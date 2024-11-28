@@ -4,12 +4,14 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
+import {ExcessivelySafeCall} from "@safecall/ExcessivelySafeCall.sol";
 import {Validator} from "./Validator.sol";
 import {TransferUtils} from "./libraries/TransferUtils.sol";
 import {IEquitoRouter} from "./interfaces/IEquitoRouter.sol";
 
 contract Settler is Validator, Ownable {
     using SafeERC20 for IERC20;
+    using ExcessivelySafeCall for address;
 
     IEquitoRouter public immutable router;
     mapping(bytes32 orderId => bool filled) public orders;
@@ -68,7 +70,12 @@ contract Settler is Validator, Ownable {
         bytes64 memory dest = EquitoMessageLibrary.addressToBytes64(orderbooks[order.sourceChainSelector]);
         router.sendMessage{value: msg.value}(bytes64(dest.lower, dest.upper), order.sourceChainSelector, data);
 
-        (bool success, bytes memory result) = order.callRecipient.call(order.callData);
+        (bool success, bytes memory result) = order.callRecipient.excessivelySafeCall(
+            1200, // TODO fix this
+            0,
+            32,
+            order.callData
+        );
         emit CallDataExecuted(orderId, success, result);
 
         emit OrderFilled(orderId, msg.sender, filler);
