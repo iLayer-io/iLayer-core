@@ -7,3 +7,6 @@
 [submodule "lib/equito-evm-contracts"]
 	path = lib/equito-evm-contracts
 	url = https://github.com/equito-network/equito-evm-contracts
+[submodule "lib/ExcessivelySafeCall"]
+	path = lib/ExcessivelySafeCall
+	url = https://github.com/nomad-xyz/ExcessivelySafeCall
