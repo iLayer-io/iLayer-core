@@ -93,9 +93,6 @@ contract Orderbook is Validator, EquitoApp {
     }
 
     function _receiveMessageFromPeer(EquitoMessage calldata message, bytes calldata messageData) internal override {
-        if (message.destinationChainSelector != block.chainid) revert InvalidMessage();
-        if (EquitoMessageLibrary.bytes64ToAddress(message.receiver) != address(this)) revert InvalidMessage();
-
         (Order memory order, address filler) = abi.decode(messageData, (Order, address));
         _fillOrder(order, filler);
     }

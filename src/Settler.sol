@@ -25,6 +25,7 @@ contract Settler is Validator, Ownable {
     error InsufficientFeesPaid();
     error InvalidOrderSignature();
     error OrderCannotBeSettled();
+    error OrderExpired();
     error OrderAlreadyFilled();
     error RestrictedToPrimaryFiller();
 
@@ -46,14 +47,21 @@ contract Settler is Validator, Ownable {
 
         bytes32 orderId = hashOrder(order);
         if (orders[orderId]) revert OrderAlreadyFilled();
-        orders[orderId] = true;
+
+        if (block.timestamp > order.deadline) revert OrderExpired();
 
         address user = EquitoMessageLibrary.bytes64ToAddress(order.user);
         address filler = EquitoMessageLibrary.bytes64ToAddress(order.filler);
 
-        if (msg.sender != filler && block.timestamp > order.primaryFillerDeadline) {
-            revert RestrictedToPrimaryFiller();
+        // Check if a specific filler is assigned
+        if (filler != address(0)) {
+            // If the filler is assigned, only the filler can settle before the primaryFillerDeadline
+            if (block.timestamp <= order.primaryFillerDeadline && msg.sender != filler) {
+                revert RestrictedToPrimaryFiller();
+            }
         }
+
+        orders[orderId] = true;
 
         for (uint256 i = 0; i < order.outputs.length; i++) {
             Token memory output = order.outputs[i];
@@ -71,7 +79,8 @@ contract Settler is Validator, Ownable {
         router.sendMessage{value: msg.value}(bytes64(dest.lower, dest.upper), order.sourceChainSelector, data);
 
         if (order.callData.length > 0) {
-            (bool success, bytes memory result) = order.callRecipient.excessivelySafeCall(
+            address callRecipient = EquitoMessageLibrary.bytes64ToAddress(order.callRecipient);
+            (bool success, bytes memory result) = callRecipient.excessivelySafeCall(
                 1200, // TODO fix this
                 0,
                 32,

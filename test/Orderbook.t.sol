@@ -11,8 +11,17 @@ contract OrderbookTest is BaseTest {
     function testCreateOrder(uint256 inputAmount) public {
         vm.assume(inputAmount > 0);
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes
+        );
 
         assertTrue(orderbook.validateOrder(order), "Invalid signature");
 
@@ -28,8 +37,17 @@ contract OrderbookTest is BaseTest {
     function testCreateOrderWithPermit() public {
         uint256 inputAmount = 1e18;
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes
+        );
 
         // Generate permit signature
         uint256 nonce = inputToken.nonces(user0);
@@ -58,8 +76,17 @@ contract OrderbookTest is BaseTest {
         uint256 inputAmount = 1e18;
         testCreateOrder(inputAmount);
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes
+        );
 
         vm.warp(block.timestamp + 1 minutes);
 
@@ -90,8 +117,17 @@ contract OrderbookTest is BaseTest {
     function testInvalidOrderSignature() public {
         uint256 inputAmount = 1e18;
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes
+        );
 
         // Tamper with the order to make the signature invalid
         order.deadline += 1;
@@ -107,8 +143,17 @@ contract OrderbookTest is BaseTest {
     function testOrderDeadlineMismatch() public {
         uint256 inputAmount = 1e18;
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 6 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            6 minutes,
+            5 minutes
+        );
 
         vm.prank(user0);
         inputToken.mint(user0, inputAmount);
@@ -121,8 +166,17 @@ contract OrderbookTest is BaseTest {
     function testOrderExpired() public {
         uint256 inputAmount = 1e18;
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes
+        );
 
         // Warp to a time after the deadline
         vm.warp(block.timestamp + 6 minutes);
@@ -139,8 +193,17 @@ contract OrderbookTest is BaseTest {
         uint256 inputAmount = 1e18;
         testCreateOrder(inputAmount);
 
-        Validator.Order memory order =
-            buildOrder(inputAmount, 1, user0, user0_pk, address(inputToken), address(outputToken), 1 minutes, 5 minutes);
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            user0_pk,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes
+        );
 
         vm.warp(block.timestamp + 5 minutes);
 

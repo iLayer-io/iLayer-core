@@ -52,6 +52,7 @@ contract BaseTest is Test {
     }
 
     function buildOrder(
+        address filler,
         uint256 inputAmount,
         uint256 outputAmount,
         address user,
@@ -77,7 +78,7 @@ contract BaseTest is Test {
 
         order = Validator.Order({
             user: EquitoMessageLibrary.addressToBytes64(user),
-            filler: EquitoMessageLibrary.addressToBytes64(address(this)),
+            filler: EquitoMessageLibrary.addressToBytes64(filler),
             inputs: inputs,
             outputs: outputs,
             sourceChainSelector: block.chainid,
@@ -85,7 +86,7 @@ contract BaseTest is Test {
             sponsored: false,
             primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
             deadline: block.timestamp + deadlineOffset,
-            callRecipient: address(0),
+            callRecipient: EquitoMessageLibrary.addressToBytes64(address(0)),
             callData: "",
             signature: ""
         });
@@ -98,5 +99,23 @@ contract BaseTest is Test {
         order.signature = abi.encodePacked(r, s, v);
 
         return order;
+    }
+
+    function validateOrderWasFilled(address user, address filler, uint256 inputAmount, uint256 outputAmount)
+        public
+        view
+    {
+        // Orderbook is empty
+        assertEq(inputToken.balanceOf(address(orderbook)), 0);
+        assertEq(outputToken.balanceOf(address(orderbook)), 0);
+        // User has received the desired tokens
+        assertEq(inputToken.balanceOf(user), 0);
+        assertEq(outputToken.balanceOf(user), outputAmount);
+        // Filler has received their payment
+        assertEq(inputToken.balanceOf(filler), inputAmount);
+        assertEq(outputToken.balanceOf(filler), 0);
+        // Settler contract is empty
+        assertEq(inputToken.balanceOf(address(settler)), 0);
+        assertEq(outputToken.balanceOf(address(settler)), 0);
     }
 }
