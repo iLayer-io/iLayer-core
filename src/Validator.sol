@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
+import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
+
+// https://github.com/hashflownetwork/x-protocol/blob/90a2283435f63a469a22c318b47cdbc87fc6975d/evm/contracts/pools/HashflowPool.sol#L615
 
 contract Validator {
     enum Status {
@@ -32,23 +35,21 @@ contract Validator {
         bytes signature;
     }
 
-    address public constant SHARED_VERIFIER_ADDRESS = address(1); // TODO Replace with a valid address
     bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
     bytes32 public constant ORDER_TYPEHASH = keccak256(
         "Order(bytes64 user,bytes64 filler,bytes32 inputsHash,bytes32 outputsHash,uint256 sourceChainSelector,uint256 destinationChainSelector,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline,bytes64 callRecipient,bytes callData)"
     );
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,address verifyingContract,uint256 chainId)");
+    address public immutable signer;
 
-    function computeDomainSeparator(uint256 chainId) public pure returns (bytes32) {
+    constructor(address _signer) {
+        signer = _signer;
+    }
+
+    function computeDomainSeparator(uint256 chainId) public view returns (bytes32) {
         return keccak256(
-            abi.encode(
-                EIP712_DOMAIN_TYPEHASH,
-                keccak256(bytes("iLayer")),
-                keccak256(bytes("1")),
-                SHARED_VERIFIER_ADDRESS,
-                chainId
-            )
+            abi.encode(EIP712_DOMAIN_TYPEHASH, keccak256(bytes("iLayer")), keccak256(bytes("1")), signer, chainId)
         );
     }
 
@@ -86,15 +87,22 @@ contract Validator {
         );
     }
 
-    function validateOrder(Order memory order) public pure returns (bool) {
+    function validateOrder(Order memory order) public view returns (bool) {
         uint256 chainId = order.sourceChainSelector;
         bytes32 domainSeparator = computeDomainSeparator(chainId);
 
         bytes32 orderHash = hashOrder(order);
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, orderHash));
-        address signer = ECDSA.recover(digest, order.signature);
+        bytes32 orderDigest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, orderHash));
+        address signerAddress = EquitoMessageLibrary.bytes64ToAddress(order.user);
 
-        return (signer == EquitoMessageLibrary.bytes64ToAddress(order.user));
+        (address recoveredSigner, ECDSA.RecoverError error,) = ECDSA.tryRecover(orderDigest, order.signature);
+        if (error == ECDSA.RecoverError.NoError && recoveredSigner == signerAddress) {
+            return true;
+        } else {
+            // If ECDSA recovery fails, try EIP-1271 for smart contracts
+            bytes4 result = IERC1271(signerAddress).isValidSignature(orderDigest, order.signature);
+            return result == IERC1271.isValidSignature.selector;
+        }
     }
 
     function validateChain(Order memory order) public view returns (bool) {

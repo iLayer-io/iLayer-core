@@ -19,6 +19,7 @@ contract Orderbook is Validator, EquitoApp {
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
     event OrderFilled(bytes32 indexed orderId, address indexed caller, address indexed filler);
 
+    error InvalidOrderInputApprovals();
     error InvalidTokenAmount();
     error InvalidOrderSignature();
     error OrderDeadlinesMismatch();
@@ -29,9 +30,20 @@ contract Orderbook is Validator, EquitoApp {
     error InvalidSourceChain();
     error InvalidMessage();
 
-    constructor(address router) EquitoApp(router) {}
+    constructor(address _signer, address _router) Validator(_signer) EquitoApp(_router) {}
 
-    function createOrder(Order memory order, bytes memory permit) external {
+    function createOrder(Order memory order) external returns (bytes32) {
+        bytes[] memory emptyPermits = new bytes[](order.inputs.length);
+        return _processOrder(order, emptyPermits);
+    }
+
+    function createOrder(Order memory order, bytes[] memory permits) external returns (bytes32) {
+        if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
+        return _processOrder(order, permits);
+    }
+
+    function _processOrder(Order memory order, bytes[] memory permits) internal returns (bytes32) {
+        if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
         if (!validateOrder(order)) revert InvalidOrderSignature();
         if (!validateChain(order)) revert InvalidSourceChain();
         if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
@@ -48,10 +60,10 @@ contract Orderbook is Validator, EquitoApp {
 
             address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(input.tokenAddress);
 
-            if (permit.length > 0) {
+            if (permits[i].length > 0) {
                 // Decode the permit signature and call permit on the token
                 (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
-                    abi.decode(permit, (uint256, uint256, uint8, bytes32, bytes32));
+                    abi.decode(permits[i], (uint256, uint256, uint8, bytes32, bytes32));
 
                 IERC20Permit(tokenAddress).permit(user, address(this), value, deadline, v, r, s);
             }
@@ -64,6 +76,8 @@ contract Orderbook is Validator, EquitoApp {
         }
 
         emit OrderCreated(orderId, msg.sender, user, order.primaryFillerDeadline, order.deadline);
+
+        return orderId;
     }
 
     function withdrawOrder(Order memory order) external {
@@ -92,7 +106,10 @@ contract Orderbook is Validator, EquitoApp {
         emit OrderWithdrawn(orderId, msg.sender);
     }
 
-    function _receiveMessageFromPeer(EquitoMessage calldata message, bytes calldata messageData) internal override {
+    function _receiveMessageFromPeer(EquitoMessage calldata, /*message*/ bytes calldata messageData)
+        internal
+        override
+    {
         (Order memory order, address filler) = abi.decode(messageData, (Order, address));
         _fillOrder(order, filler);
     }

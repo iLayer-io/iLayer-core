@@ -29,7 +29,7 @@ contract Settler is Validator, Ownable {
     error OrderAlreadyFilled();
     error RestrictedToPrimaryFiller();
 
-    constructor(address _router) Ownable(msg.sender) {
+    constructor(address _signer, address _router) Validator(_signer) Ownable(msg.sender) {
         router = IEquitoRouter(_router);
     }
 
@@ -68,7 +68,7 @@ contract Settler is Validator, Ownable {
 
             address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(output.tokenAddress);
             if (output.tokenId != type(uint256).max) {
-                TransferUtils.transfer(filler, user, tokenAddress, output.tokenId, output.amount);
+                TransferUtils.transfer(msg.sender, user, tokenAddress, output.tokenId, output.amount);
             } else {
                 IERC20(tokenAddress).safeTransferFrom(msg.sender, user, output.amount);
             }

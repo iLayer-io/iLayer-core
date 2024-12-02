@@ -8,8 +8,11 @@ import {Orderbook} from "../src/Orderbook.sol";
 import {Settler} from "../src/Settler.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockRouter} from "./mocks/MockRouter.sol";
+import {MockScUser} from "./mocks/MockScUser.sol";
 
 contract BaseTest is Test {
+    address public constant SIGNER = address(1);
+
     // users
     uint256 public immutable user0_pk = uint256(keccak256("user0-private-key"));
     address public immutable user0 = vm.addr(user0_pk);
@@ -24,31 +27,28 @@ contract BaseTest is Test {
     MockERC20 public immutable inputToken;
     MockERC20 public immutable outputToken;
     MockRouter public immutable router;
+    MockScUser public immutable contractUser0;
+    MockScUser public immutable contractUser1;
 
     constructor() {
         router = new MockRouter();
-        orderbook = new Orderbook(address(router));
-        settler = new Settler(address(router));
+        orderbook = new Orderbook(SIGNER, address(router));
+        settler = new Settler(SIGNER, address(router));
         inputToken = new MockERC20("input", "INPUT");
         outputToken = new MockERC20("output", "OUTPUT");
+        contractUser0 = new MockScUser(address(orderbook), address(settler));
+        contractUser1 = new MockScUser(address(orderbook), address(settler));
 
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
-
+        vm.label(address(contractUser0), "CONTRACT_USER0");
+        vm.label(address(contractUser1), "CONTRACT_USER1");
         vm.label(address(orderbook), "ORDERBOOK");
         vm.label(address(settler), "SETTLER");
         vm.label(address(inputToken), "INPUT TOKEN");
         vm.label(address(outputToken), "OUTPUT TOKEN");
         vm.label(address(router), "ROUTER");
-
-        uint256[] memory chainSelectors = new uint256[](1);
-        chainSelectors[0] = block.chainid;
-        bytes64[] memory addresses = new bytes64[](1);
-        addresses[0] = EquitoMessageLibrary.addressToBytes64(address(settler));
-        orderbook.setPeers(chainSelectors, addresses);
-
-        settler.setOrderbook(block.chainid, address(orderbook));
     }
 
     function buildOrder(

@@ -30,7 +30,7 @@ contract OrderbookTest is BaseTest {
         inputToken.approve(address(orderbook), inputAmount);
 
         assertEq(inputToken.balanceOf(address(orderbook)), 0);
-        orderbook.createOrder(order, "");
+        orderbook.createOrder(order);
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
 
@@ -64,10 +64,12 @@ contract OrderbookTest is BaseTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(user0_pk, permitHash);
 
         bytes memory permit = abi.encode(inputAmount, deadline, v, r, s);
+        bytes[] memory permits = new bytes[](1);
+        permits[0] = permit;
 
         inputToken.mint(user0, inputAmount);
         vm.prank(user0);
-        orderbook.createOrder(order, permit);
+        orderbook.createOrder(order, permits);
 
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
@@ -137,7 +139,7 @@ contract OrderbookTest is BaseTest {
         inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.InvalidOrderSignature.selector);
-        orderbook.createOrder(order, "");
+        orderbook.createOrder(order);
     }
 
     function testOrderDeadlineMismatch() public {
@@ -160,7 +162,7 @@ contract OrderbookTest is BaseTest {
         inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.OrderDeadlinesMismatch.selector);
-        orderbook.createOrder(order, "");
+        orderbook.createOrder(order);
     }
 
     function testOrderExpired() public {
@@ -186,7 +188,7 @@ contract OrderbookTest is BaseTest {
         inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.OrderExpired.selector);
-        orderbook.createOrder(order, "");
+        orderbook.createOrder(order);
     }
 
     function testDoubleWithdrawal() public {
