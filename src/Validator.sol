@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
 
@@ -9,6 +8,7 @@ import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libr
 
 contract Validator {
     enum Status {
+        NULL,
         ACTIVE,
         FILLED,
         WITHDRAWN
@@ -32,7 +32,6 @@ contract Validator {
         uint256 deadline;
         bytes64 callRecipient;
         bytes callData;
-        bytes signature;
     }
 
     bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
@@ -87,7 +86,7 @@ contract Validator {
         );
     }
 
-    function validateOrder(Order memory order) public view returns (bool) {
+    function validateOrder(Order memory order, bytes memory signature) public view returns (bool) {
         uint256 chainId = order.sourceChainSelector;
         bytes32 domainSeparator = computeDomainSeparator(chainId);
 
@@ -95,13 +94,11 @@ contract Validator {
         bytes32 orderDigest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, orderHash));
         address signerAddress = EquitoMessageLibrary.bytes64ToAddress(order.user);
 
-        (address recoveredSigner, ECDSA.RecoverError error,) = ECDSA.tryRecover(orderDigest, order.signature);
+        (address recoveredSigner, ECDSA.RecoverError error,) = ECDSA.tryRecover(orderDigest, signature);
         if (error == ECDSA.RecoverError.NoError && recoveredSigner == signerAddress) {
             return true;
         } else {
-            // If ECDSA recovery fails, try EIP-1271 for smart contracts
-            bytes4 result = IERC1271(signerAddress).isValidSignature(orderDigest, order.signature);
-            return result == IERC1271.isValidSignature.selector;
+            return false;
         }
     }
 

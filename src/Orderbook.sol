@@ -28,28 +28,59 @@ contract Orderbook is Validator, EquitoApp {
     error OrderCannotBeFilled();
     error Unauthorized();
     error InvalidSourceChain();
+    error InvalidUser();
     error InvalidMessage();
 
     constructor(address _signer, address _router) Validator(_signer) EquitoApp(_router) {}
 
     function createOrder(Order memory order) external returns (bytes32) {
-        bytes[] memory emptyPermits = new bytes[](order.inputs.length);
-        return _processOrder(order, emptyPermits);
+        address user = EquitoMessageLibrary.bytes64ToAddress(order.user);
+        if (user != msg.sender) revert InvalidUser();
+        _checkOrder(order);
+
+        bytes32 orderId = hashOrder(order);
+        orders[orderId] = Status.ACTIVE;
+
+        for (uint256 i = 0; i < order.inputs.length; i++) {
+            Token memory input = order.inputs[i];
+
+            address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(input.tokenAddress);
+            if (input.tokenId != type(uint256).max) {
+                TransferUtils.transfer(user, address(this), tokenAddress, input.tokenId, input.amount);
+            } else {
+                IERC20(tokenAddress).safeTransferFrom(user, address(this), input.amount);
+            }
+        }
+
+        emit OrderCreated(orderId, msg.sender, user, order.primaryFillerDeadline, order.deadline);
+
+        return orderId;
     }
 
-    function createOrder(Order memory order, bytes[] memory permits) external returns (bytes32) {
+    function createOrder(Order memory order, bytes[] memory permits, bytes memory signature)
+        external
+        returns (bytes32)
+    {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
-        return _processOrder(order, permits);
+        return _processOrder(order, permits, signature);
     }
 
-    function _processOrder(Order memory order, bytes[] memory permits) internal returns (bytes32) {
-        if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
-        if (!validateOrder(order)) revert InvalidOrderSignature();
+    function _checkOrder(Order memory order) internal {
         if (!validateChain(order)) revert InvalidSourceChain();
         if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
 
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp > order.deadline) revert OrderExpired();
+    }
+
+    function _processOrder(Order memory order, bytes[] memory permits, bytes memory signature)
+        internal
+        returns (bytes32)
+    {
+        if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
+        if (!validateOrder(order, signature)) revert InvalidOrderSignature();
+
+        _checkOrder(order);
 
         bytes32 orderId = hashOrder(order);
         orders[orderId] = Status.ACTIVE;
@@ -81,8 +112,6 @@ contract Orderbook is Validator, EquitoApp {
     }
 
     function withdrawOrder(Order memory order) external {
-        if (!validateOrder(order)) revert InvalidOrderSignature();
-
         address user = EquitoMessageLibrary.bytes64ToAddress(order.user);
         if (user != msg.sender) revert Unauthorized();
 
@@ -115,8 +144,6 @@ contract Orderbook is Validator, EquitoApp {
     }
 
     function _fillOrder(Order memory order, address filler) internal {
-        if (!validateOrder(order)) revert InvalidOrderSignature();
-
         // we don't check any deadline here cause we assume the Settler contract has done that already
         bytes32 orderId = hashOrder(order);
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();

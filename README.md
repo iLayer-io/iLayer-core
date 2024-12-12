@@ -41,7 +41,7 @@ If you find bugs, please report them to *info@ilayer.network*. You may be eligib
 
 ## Documentation
 
-You can read more about how it works on our [documentation website](https://docs.ilayer.network/) or on the [official whitepaper](https://github.com/equito-network/whitepaper/blob/master/ilayer-whitepaper.pdf).
+You can read more about how it works on our [documentation website](https://docs.ilayer.network/) or on the [official whitepaper](https://github.com/ilayer-network/whitepaper/blob/master/ilayer-whitepaper.pdf).
 
 ## Licensing
 
