@@ -7,3 +7,6 @@
 [submodule "lib/ExcessivelySafeCall"]
 	path = lib/ExcessivelySafeCall
 	url = https://github.com/nomad-xyz/ExcessivelySafeCall
+[submodule "lib/iLayer-CCM-EVM"]
+	path = lib/iLayer-CCM-EVM
+	url = https://github.com/iLayer-io/iLayer-CCM-EVM
