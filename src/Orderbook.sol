@@ -1,23 +1,27 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {EquitoApp} from "@equito-network/EquitoApp.sol";
-import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
+import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
+import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
+import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
 import {Validator} from "./Validator.sol";
 import {TransferUtils} from "./libraries/TransferUtils.sol";
 
-contract Orderbook is Validator, EquitoApp {
+contract Orderbook is Validator, Ownable, iLayerCCMApp {
     using SafeERC20 for IERC20;
 
+    /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
+    /// @notice storing settlers for each chain supported
+    mapping(uint256 chain => address settler) public settlers;
 
-    event OrderCreated(
-        bytes32 indexed orderId, address caller, address user, uint256 primaryFillerDeadline, uint256 deadline
-    );
+    event SettlerUpdated(uint256 indexed chainId, address indexed settler);
+    event OrderCreated(bytes32 indexed orderId, address caller, Order order);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
-    event OrderFilled(bytes32 indexed orderId, address indexed caller, address indexed filler);
+    event OrderFilled(bytes32 indexed orderId, address indexed filler);
 
     error InvalidOrderInputApprovals();
     error InvalidTokenAmount();
@@ -26,17 +30,26 @@ contract Orderbook is Validator, EquitoApp {
     error OrderExpired();
     error OrderCannotBeWithdrawn();
     error OrderCannotBeFilled();
+    error OrderCannotBeSettled();
     error Unauthorized();
     error InvalidSourceChain();
     error InvalidUser();
     error InvalidMessage();
 
-    constructor(address _signer, address _router) Validator(_signer) EquitoApp(_router) {}
+    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
 
-    function createOrder(Order memory order) external returns (bytes32) {
-        address user = EquitoMessageLibrary.bytes64ToAddress(order.user);
+    function setSettler(uint256 chain, address settler) external onlyOwner {
+        settlers[chain] = settler;
+
+        emit SettlerUpdated(chain, settler);
+    }
+
+    /// @notice create on-chain order, don't check the signature
+    function createOrder(Order memory order, uint16 confirmations) external payable returns (bytes32) {
+        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
         if (user != msg.sender) revert InvalidUser();
-        _checkOrder(order);
+
+        _checkOrderValidity(order);
 
         bytes32 orderId = hashOrder(order);
         orders[orderId] = Status.ACTIVE;
@@ -44,7 +57,7 @@ contract Orderbook is Validator, EquitoApp {
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
             if (input.tokenId != type(uint256).max) {
                 TransferUtils.transfer(user, address(this), tokenAddress, input.tokenId, input.amount);
             } else {
@@ -52,44 +65,32 @@ contract Orderbook is Validator, EquitoApp {
             }
         }
 
-        emit OrderCreated(orderId, msg.sender, user, order.primaryFillerDeadline, order.deadline);
+        _broadcastOrder(order, msg.value, confirmations);
+
+        emit OrderCreated(orderId, msg.sender, order);
 
         return orderId;
     }
 
-    function createOrder(Order memory order, bytes[] memory permits, bytes memory signature)
+    /// @notice create off-chain order, signature must be valid
+    function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
         external
-        returns (bytes32)
-    {
-        if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
-        return _processOrder(order, permits, signature);
-    }
-
-    function _checkOrder(Order memory order) internal {
-        if (!validateChain(order)) revert InvalidSourceChain();
-        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
-
-        if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
-        if (block.timestamp > order.deadline) revert OrderExpired();
-    }
-
-    function _processOrder(Order memory order, bytes[] memory permits, bytes memory signature)
-        internal
+        payable
         returns (bytes32)
     {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
 
-        _checkOrder(order);
+        _checkOrderValidity(order);
 
         bytes32 orderId = hashOrder(order);
         orders[orderId] = Status.ACTIVE;
 
-        address user = EquitoMessageLibrary.bytes64ToAddress(order.user);
+        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
 
             if (permits[i].length > 0) {
                 // Decode the permit signature and call permit on the token
@@ -106,25 +107,30 @@ contract Orderbook is Validator, EquitoApp {
             }
         }
 
-        emit OrderCreated(orderId, msg.sender, user, order.primaryFillerDeadline, order.deadline);
+        _broadcastOrder(order, msg.value, confirmations);
+
+        emit OrderCreated(orderId, msg.sender, order);
 
         return orderId;
     }
 
     function withdrawOrder(Order memory order) external {
-        address user = EquitoMessageLibrary.bytes64ToAddress(order.user);
+        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
+        // the order can only be withdrawn by the user themselves
         if (user != msg.sender) revert Unauthorized();
 
         bytes32 orderId = hashOrder(order);
         if (order.deadline > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
         }
+
         orders[orderId] = Status.WITHDRAWN;
 
+        // transfer input assets back to the user
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
             if (input.tokenId != type(uint256).max) {
                 TransferUtils.transfer(address(this), user, tokenAddress, input.tokenId, input.amount);
             } else {
@@ -135,16 +141,16 @@ contract Orderbook is Validator, EquitoApp {
         emit OrderWithdrawn(orderId, msg.sender);
     }
 
-    function _receiveMessageFromPeer(EquitoMessage calldata, /*message*/ bytes calldata messageData)
-        internal
-        override
-    {
-        (Order memory order, address filler) = abi.decode(messageData, (Order, address));
-        _fillOrder(order, filler);
-    }
+    /// @notice receive order settlement message from the settler contract
+    function _receiveMessageFromNonPeer(
+        address, /*dispatcher*/
+        iLayerMessage calldata, /*message*/
+        bytes calldata messageData,
+        bytes calldata /*extraData*/
+    ) internal override onlyRouter {
+        (Order memory order, address filler, address fundingWallet) = abi.decode(messageData, (Order, address, address));
 
-    function _fillOrder(Order memory order, address filler) internal {
-        // we don't check any deadline here cause we assume the Settler contract has done that already
+        // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
         bytes32 orderId = hashOrder(order);
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
         orders[orderId] = Status.FILLED;
@@ -152,14 +158,29 @@ contract Orderbook is Validator, EquitoApp {
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = EquitoMessageLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
             if (input.tokenId != type(uint256).max) {
-                TransferUtils.transfer(address(this), filler, tokenAddress, input.tokenId, input.amount);
+                TransferUtils.transfer(address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
             } else {
-                IERC20(tokenAddress).safeTransfer(filler, input.amount);
+                IERC20(tokenAddress).safeTransfer(fundingWallet, input.amount);
             }
         }
 
-        emit OrderFilled(orderId, msg.sender, filler);
+        emit OrderFilled(orderId, filler);
+    }
+
+    function _checkOrderValidity(Order memory order) internal view {
+        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
+        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
+        if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
+
+        if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
+        if (block.timestamp > order.deadline) revert OrderExpired();
+    }
+
+    function _broadcastOrder(Order memory order, uint256 fee, uint16 confirmations) internal {
+        bytes memory data = abi.encode(order, msg.sender);
+        bytes64 memory dest = iLayerCCMLibrary.addressToBytes64(settlers[order.destinationChainSelector]);
+        router.sendMessage{value: fee}(dest, order.destinationChainSelector, confirmations, data);
     }
 }

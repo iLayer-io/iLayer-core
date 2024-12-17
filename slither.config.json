@@ -5,6 +5,7 @@
     "ds-test/=lib/ds-test/src/",
     "forge-std/=lib/forge-std/src/",
     "@openzeppelin/=lib/openzeppelin-contracts/",
-    "@safecall=lib/ExcessivelySafeCall/src/"
+    "@safecall=lib/ExcessivelySafeCall/src/",
+    "@ilayer=lib/iLayer-CCM-EVM/src/"
   ]
 }

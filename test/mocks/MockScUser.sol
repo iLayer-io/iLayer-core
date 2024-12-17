@@ -11,17 +11,17 @@ contract MockScUser is IERC1271 {
     Orderbook internal immutable orderbook;
     Settler internal immutable settler;
 
-    constructor(address _orderbook, address _settler) {
-        orderbook = Orderbook(_orderbook);
-        settler = Settler(_settler);
+    constructor(Orderbook _orderbook, Settler _settler) {
+        orderbook = _orderbook;
+        settler = _settler;
     }
 
     function placeOrder(Validator.Order memory order) external {
-        orderbook.createOrder(order);
+        //orderbook.createOrder(order);
     }
 
     function settleOrder(Validator.Order memory order) external {
-        settler.fillOrder(order);
+        //settler.fillOrder(order);
     }
 
     function isValidSignature(bytes32 orderDigest, bytes memory signature)

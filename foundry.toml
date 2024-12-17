@@ -14,7 +14,8 @@ src = "src"
 test = "test"
 remappings = [
   '@openzeppelin/=lib/openzeppelin-contracts/',
-  '@safecall=lib/ExcessivelySafeCall/src/'
+  '@safecall=lib/ExcessivelySafeCall/src/',
+  '@ilayer=lib/iLayer-CCM-EVM/src/'
 ]
 
 [profile.ci]

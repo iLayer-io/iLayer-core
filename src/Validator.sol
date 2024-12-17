@@ -2,9 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
-
-// https://github.com/hashflownetwork/x-protocol/blob/90a2283435f63a469a22c318b47cdbc87fc6975d/evm/contracts/pools/HashflowPool.sol#L615
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 
 contract Validator {
     enum Status {
@@ -40,17 +39,11 @@ contract Validator {
     );
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,address verifyingContract,uint256 chainId)");
-    address public immutable signer;
-
-    constructor(address _signer) {
-        signer = _signer;
-    }
-
-    function computeDomainSeparator(uint256 chainId) public view returns (bytes32) {
-        return keccak256(
-            abi.encode(EIP712_DOMAIN_TYPEHASH, keccak256(bytes("iLayer")), keccak256(bytes("1")), signer, chainId)
-        );
-    }
+    bytes32 public immutable DOMAIN_SEPARATOR = keccak256(
+        abi.encode(
+            EIP712_DOMAIN_TYPEHASH, keccak256(bytes("iLayer")), keccak256(bytes("1")), address(this), block.chainid
+        )
+    );
 
     function hashTokenStruct(Token memory token) internal pure returns (bytes32) {
         return keccak256(abi.encode(TOKEN_TYPEHASH, token.tokenAddress, token.tokenId, token.amount));
@@ -87,22 +80,12 @@ contract Validator {
     }
 
     function validateOrder(Order memory order, bytes memory signature) public view returns (bool) {
-        uint256 chainId = order.sourceChainSelector;
-        bytes32 domainSeparator = computeDomainSeparator(chainId);
+        bytes32 structHash = hashOrder(order);
 
-        bytes32 orderHash = hashOrder(order);
-        bytes32 orderDigest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, orderHash));
-        address signerAddress = EquitoMessageLibrary.bytes64ToAddress(order.user);
+        // Compute the final EIP-712 digest
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
 
-        (address recoveredSigner, ECDSA.RecoverError error,) = ECDSA.tryRecover(orderDigest, signature);
-        if (error == ECDSA.RecoverError.NoError && recoveredSigner == signerAddress) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    function validateChain(Order memory order) public view returns (bool) {
-        return order.sourceChainSelector == block.chainid;
+        address orderSigner = iLayerCCMLibrary.bytes64ToAddress(order.user);
+        return SignatureChecker.isValidSignatureNow(orderSigner, digest, signature);
     }
 }

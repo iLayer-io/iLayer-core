@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {EquitoApp} from "@equito-network/EquitoApp.sol";
-import {bytes64, EquitoMessage, EquitoMessageLibrary} from "@equito-network/libraries/EquitoMessageLibrary.sol";
-import {IEquitoRouter} from "../../src/interfaces/IEquitoRouter.sol";
+import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
+import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
+import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 
-contract MockRouter is IEquitoRouter {
+contract MockRouter is IiLayerRouter {
     uint256 public fee;
 
     function setFee(uint256 _fee) external {
@@ -16,26 +16,36 @@ contract MockRouter is IEquitoRouter {
         return fee;
     }
 
-    function sendMessage(bytes64 calldata receiver, uint256, /*destinationChainSelector*/ bytes calldata data)
+    function sendMessage(bytes64 calldata, uint256, uint16, bytes calldata) external payable returns (bytes32) {
+        assert(msg.value == fee);
+    }
+
+    function executeMessage(iLayerMessage calldata message, bytes calldata messageData, bytes calldata extraData)
         external
         payable
-        returns (bytes32)
+        override
     {
-        assert(msg.value == fee);
+        address dest = iLayerCCMLibrary.bytes64ToAddress(message.receiver);
 
-        bytes32 hashedData = keccak256(data);
-        address dest = EquitoMessageLibrary.bytes64ToAddress(receiver);
-
-        EquitoMessage memory message = EquitoMessage({
-            blockNumber: block.number,
-            sourceChainSelector: block.chainid,
-            destinationChainSelector: block.chainid,
-            sender: EquitoMessageLibrary.addressToBytes64(msg.sender),
-            receiver: receiver,
-            hashedData: hashedData
-        });
-        EquitoApp(dest).receiveMessage(message, data);
-
-        return hashedData;
+        iLayerCCMApp(dest).receiveMessage(msg.sender, message, messageData, extraData);
     }
+
+    function chainSelector() external view override returns (uint256) {}
+
+    function defaultBlockConfirmations() external view override returns (uint16) {}
+
+    function deliverMessages(iLayerMessage[] calldata messages, uint256 verifierIndex, bytes calldata proof)
+        external
+        override
+    {}
+
+    function deliverAndExecuteMessage(
+        iLayerMessage calldata message,
+        bytes calldata messageData,
+        bytes calldata extraData,
+        uint256 verifierIndex,
+        bytes calldata proof
+    ) external payable override {}
+
+    function iLayerL1Address() external view override returns (bytes32, bytes32) {}
 }
