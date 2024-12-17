@@ -21,6 +21,9 @@ export ORDERBOOK_ADDRESS=$(echo "$ORDERBOOK" | grep "Deployed to:" | awk '{print
 SETTLER=$(forge create src/Settler.sol:Settler --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY --constructor-args $ROUTER_ADDRESS)
 export SETTLER_ADDRESS=$(echo "$SETTLER" | grep "Deployed to:" | awk '{print $3}')
 
+cast send --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY $ORDERBOOK_ADDRESS  "setSettler(uint256,address)" 31337 $SETTLER_ADDRESS
+cast send --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY $SETTLER_ADDRESS  "setOrderbook(uint256,address)" 31337 $ORDERBOOK_ADDRESS
+
 echo " "
 echo "---------------------------------------------------------------------------------"
 echo "Mock Router contract deployed to $ROUTER_ADDRESS"
