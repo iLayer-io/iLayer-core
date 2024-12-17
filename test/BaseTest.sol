@@ -118,7 +118,7 @@ contract BaseTest is Test {
         bytes32 structHash = orderbook.hashOrder(order);
 
         // Compute the EIP-712 domain separator as the contract does
-        bytes32 domainSeparator = orderbook.computeDomainSeparator(block.chainid);
+        bytes32 domainSeparator = orderbook.DOMAIN_SEPARATOR();
 
         // Create the EIP-712 typed data hash
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
