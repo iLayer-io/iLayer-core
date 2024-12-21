@@ -19,7 +19,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     mapping(uint256 chain => address settler) public settlers;
 
     event SettlerUpdated(uint256 indexed chainId, address indexed settler);
-    event OrderCreated(bytes32 indexed orderId, address caller, Order order);
+    event OrderCreated(bytes32 indexed orderId, address caller, Order order, uint16 confirmations);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
     event OrderFilled(bytes32 indexed orderId, address indexed filler);
 
@@ -34,7 +34,6 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error Unauthorized();
     error InvalidSourceChain();
     error InvalidUser();
-    error InvalidMessage();
 
     constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
 
@@ -67,7 +66,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
         _broadcastOrder(order, msg.value, confirmations);
 
-        emit OrderCreated(orderId, msg.sender, order);
+        emit OrderCreated(orderId, msg.sender, order, confirmations);
 
         return orderId;
     }
@@ -109,7 +108,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
         _broadcastOrder(order, msg.value, confirmations);
 
-        emit OrderCreated(orderId, msg.sender, order);
+        emit OrderCreated(orderId, msg.sender, order, confirmations);
 
         return orderId;
     }
@@ -179,7 +178,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     }
 
     function _broadcastOrder(Order memory order, uint256 fee, uint16 confirmations) internal {
-        bytes memory data = abi.encode(order, msg.sender);
+        bytes memory data = abi.encode(order);
         bytes64 memory dest = iLayerCCMLibrary.addressToBytes64(settlers[order.destinationChainSelector]);
         router.sendMessage{value: fee}(dest, order.destinationChainSelector, confirmations, data);
     }

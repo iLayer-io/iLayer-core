@@ -26,7 +26,7 @@ contract BaseTest is Test {
     // iLayer
     MockiLayerVerifier public immutable verifier;
     MockiLayerFees public immutable iLayerFees;
-    iLayerRouter public immutable router;
+    MockRouter public immutable router;
     address public constant iLayerL1Address = address(0x45717569746f);
     bytes public constant msgProof = abi.encode(1);
 
@@ -41,9 +41,10 @@ contract BaseTest is Test {
     constructor() {
         verifier = new MockiLayerVerifier();
         iLayerFees = new MockiLayerFees();
-        router = new iLayerRouter(
+        router = new MockRouter();
+        /* iLayerRouter(
             1, address(verifier), address(iLayerFees), 0, iLayerCCMLibrary.addressToBytes64(iLayerL1Address)
-        );
+        );*/
         orderbook = new Orderbook(address(router));
         settler = new Settler(address(router));
         inputToken = new MockERC20("input", "INPUT");

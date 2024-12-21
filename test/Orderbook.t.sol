@@ -230,4 +230,155 @@ contract OrderbookTest is BaseTest {
         orderbook.withdrawOrder(order);
         vm.stopPrank();
     }
+
+    function testCreateOrderWithZeroAmount() public {
+        Validator.Order memory order = buildOrder(
+            address(this),
+            0, // set it to zero to simulate a null order
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        vm.expectRevert(Orderbook.InvalidTokenAmount.selector);
+        orderbook.createOrder(order, 0);
+    }
+
+    function testCreateOrderInsufficientAllowance() public {
+        uint256 inputAmount = 1e18;
+
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        inputToken.mint(user0, inputAmount);
+        vm.prank(user0);
+        inputToken.approve(address(orderbook), inputAmount - 1); // Approve less than required
+
+        vm.prank(user0);
+        vm.expectRevert();
+        orderbook.createOrder(order, 0);
+    }
+
+    function testCreateOrderInsufficientBalance() public {
+        uint256 inputAmount = 1e18;
+
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        inputToken.mint(user0, inputAmount - 1); // Mint less than required
+        vm.prank(user0);
+        inputToken.approve(address(orderbook), inputAmount);
+
+        vm.prank(user0);
+        vm.expectRevert();
+        orderbook.createOrder(order, 0);
+    }
+
+    function testWithdrawNonExistentOrder() public {
+        uint256 inputAmount = 1e18;
+
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        vm.prank(user0);
+        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
+        orderbook.withdrawOrder(order);
+    }
+
+    function testCreateMultipleOrdersSameUser(uint256 inputAmount1, uint256 inputAmount2) public {
+        vm.assume(inputAmount1 < type(uint256).max - inputAmount2);
+        vm.assume(inputAmount1 > 0);
+        vm.assume(inputAmount2 > 0);
+
+        Validator.Order memory order1 = buildOrder(
+            address(this),
+            inputAmount1,
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        Validator.Order memory order2 = buildOrder(
+            address(this),
+            inputAmount2,
+            2,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            2 minutes,
+            6 minutes,
+            address(0),
+            ""
+        );
+
+        inputToken.mint(user0, inputAmount1 + inputAmount2);
+        vm.startPrank(user0);
+        inputToken.approve(address(orderbook), inputAmount1 + inputAmount2);
+
+        orderbook.createOrder(order1, 0);
+        orderbook.createOrder(order2, 0);
+        vm.stopPrank();
+
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount1 + inputAmount2);
+    }
+
+    function testCreateOrderWithInvalidTokens() public {
+        uint256 inputAmount = 1e18;
+
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            address(0), // Invalid token address
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        vm.expectRevert();
+        orderbook.createOrder(order, 0);
+    }
 }

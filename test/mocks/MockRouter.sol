@@ -25,9 +25,7 @@ contract MockRouter is IiLayerRouter {
         payable
         override
     {
-        address dest = iLayerCCMLibrary.bytes64ToAddress(message.receiver);
-
-        iLayerCCMApp(dest).receiveMessage(msg.sender, message, messageData, extraData);
+        _executeMessage(message, messageData, extraData);
     }
 
     function chainSelector() external view override returns (uint256) {}
@@ -45,7 +43,17 @@ contract MockRouter is IiLayerRouter {
         bytes calldata extraData,
         uint256 verifierIndex,
         bytes calldata proof
-    ) external payable override {}
+    ) external payable override {
+        _executeMessage(message, messageData, extraData);
+    }
 
     function iLayerL1Address() external view override returns (bytes32, bytes32) {}
+
+    function _executeMessage(iLayerMessage calldata message, bytes calldata messageData, bytes calldata extraData)
+        internal
+    {
+        address dest = iLayerCCMLibrary.bytes64ToAddress(message.receiver);
+
+        iLayerCCMApp(dest).receiveMessage(msg.sender, message, messageData, extraData);
+    }
 }
