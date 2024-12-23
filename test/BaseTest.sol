@@ -131,6 +131,22 @@ contract BaseTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
+    function buildMessage(address sender, address receiver, bytes memory data)
+        public
+        view
+        returns (iLayerMessage memory)
+    {
+        return iLayerMessage({
+            blockNumber: 1,
+            sourceChainSelector: 2,
+            blockConfirmations: 0,
+            sender: iLayerCCMLibrary.addressToBytes64(sender),
+            destinationChainSelector: block.chainid,
+            receiver: iLayerCCMLibrary.addressToBytes64(receiver),
+            hashedData: keccak256(data)
+        });
+    }
+
     function validateOrderWasFilled(address user, address filler, uint256 inputAmount, uint256 outputAmount)
         public
         view
@@ -147,21 +163,5 @@ contract BaseTest is Test {
         // Settler contract is empty
         assertEq(inputToken.balanceOf(address(settler)), 0, "Settler contract is not empty");
         assertEq(outputToken.balanceOf(address(settler)), 0, "Settler contract is not empty");
-    }
-
-    function buildMessage(address sender, address receiver, bytes memory data)
-        public
-        view
-        returns (iLayerMessage memory)
-    {
-        return iLayerMessage({
-            blockNumber: 1,
-            sourceChainSelector: 2,
-            blockConfirmations: 0,
-            sender: iLayerCCMLibrary.addressToBytes64(sender),
-            destinationChainSelector: block.chainid,
-            receiver: iLayerCCMLibrary.addressToBytes64(receiver),
-            hashedData: keccak256(data)
-        });
     }
 }
