@@ -6,6 +6,7 @@ import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayer
 import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
 import {Orderbook} from "../src/Orderbook.sol";
+import {MockERC20} from "../test/mocks/MockERC20.sol";
 
 contract CreateOrderScript is Script {
     Orderbook public orderbook;
@@ -78,6 +79,10 @@ contract CreateOrderScript is Script {
         bytes memory signature = _sign(order, userPrivateKey);
 
         vm.startBroadcast(userPrivateKey);
+
+        MockERC20 token = MockERC20(fromToken);
+        token.approve(address(orderbook), inputAmount);
+        token.mint(user, inputAmount);
 
         Orderbook(orderbook).createOrder(order, permits, signature, 0);
 
