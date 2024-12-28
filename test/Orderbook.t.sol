@@ -8,7 +8,7 @@ import {BaseTest} from "./BaseTest.sol";
 contract OrderbookTest is BaseTest {
     constructor() BaseTest() {}
 
-    function testCreateOrderSimple(uint256 inputAmount) public {
+    function testCreateOrder(uint256 inputAmount) public {
         vm.assume(inputAmount > 0);
 
         Validator.Order memory order = buildOrder(
@@ -23,6 +23,7 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         inputToken.mint(user0, inputAmount);
         vm.prank(user0);
@@ -30,7 +31,7 @@ contract OrderbookTest is BaseTest {
 
         assertEq(inputToken.balanceOf(address(orderbook)), 0);
         vm.prank(user0);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
 
@@ -79,7 +80,7 @@ contract OrderbookTest is BaseTest {
 
     function testOrderWithdrawal() public {
         uint256 inputAmount = 1e18;
-        testCreateOrderSimple(inputAmount);
+        testCreateOrder(inputAmount);
 
         Validator.Order memory order = buildOrder(
             address(this),
@@ -164,13 +165,14 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         vm.startPrank(user0);
         inputToken.mint(user0, inputAmount);
         inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.OrderDeadlinesMismatch.selector);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
     }
 
@@ -189,6 +191,7 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         // Warp to a time after the deadline
         vm.warp(block.timestamp + 6 minutes);
@@ -198,13 +201,13 @@ contract OrderbookTest is BaseTest {
         inputToken.approve(address(orderbook), inputAmount);
 
         vm.expectRevert(Orderbook.OrderExpired.selector);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
     }
 
     function testDoubleWithdrawal() public {
         uint256 inputAmount = 1e18;
-        testCreateOrderSimple(inputAmount);
+        testCreateOrder(inputAmount);
 
         Validator.Order memory order = buildOrder(
             address(this),
@@ -244,9 +247,10 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         vm.expectRevert(Orderbook.InvalidTokenAmount.selector);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
     }
 
     function testCreateOrderInsufficientAllowance() public {
@@ -264,6 +268,7 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         inputToken.mint(user0, inputAmount);
         vm.prank(user0);
@@ -271,7 +276,7 @@ contract OrderbookTest is BaseTest {
 
         vm.prank(user0);
         vm.expectRevert();
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
     }
 
     function testCreateOrderInsufficientBalance() public {
@@ -289,6 +294,7 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         inputToken.mint(user0, inputAmount - 1); // Mint less than required
         vm.prank(user0);
@@ -296,7 +302,7 @@ contract OrderbookTest is BaseTest {
 
         vm.prank(user0);
         vm.expectRevert();
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
     }
 
     function testWithdrawNonExistentOrder() public {
@@ -337,6 +343,7 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature1 = buildSignature(order1, user0_pk);
 
         Validator.Order memory order2 = buildOrder(
             address(this),
@@ -350,13 +357,62 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature2 = buildSignature(order2, user0_pk);
 
         inputToken.mint(user0, inputAmount1 + inputAmount2);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount1 + inputAmount2);
 
-        orderbook.createOrder(order1, 0);
-        orderbook.createOrder(order2, 0);
+        orderbook.createOrder(order1, permits, signature1, 0);
+        orderbook.createOrder(order2, permits, signature2, 0);
+        vm.stopPrank();
+
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount1 + inputAmount2);
+    }
+
+    function testCreateMultipleOrdersMultipleUsers(uint256 inputAmount1, uint256 inputAmount2) public {
+        vm.assume(inputAmount1 < type(uint256).max - inputAmount2);
+        vm.assume(inputAmount1 > 0);
+        vm.assume(inputAmount2 > 0);
+
+        Validator.Order memory order1 = buildOrder(
+            address(this),
+            inputAmount1,
+            1,
+            user1,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature1 = buildSignature(order1, user1_pk);
+
+        Validator.Order memory order2 = buildOrder(
+            address(this),
+            inputAmount2,
+            2,
+            user2,
+            address(inputToken),
+            address(outputToken),
+            2 minutes,
+            6 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature2 = buildSignature(order2, user2_pk);
+
+        vm.startPrank(user1);
+        inputToken.mint(user1, inputAmount1);
+        inputToken.approve(address(orderbook), inputAmount1);
+        orderbook.createOrder(order1, permits, signature1, 0);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        inputToken.mint(user2, inputAmount2);
+        inputToken.approve(address(orderbook), inputAmount2);
+        orderbook.createOrder(order2, permits, signature2, 0);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount1 + inputAmount2);
@@ -377,8 +433,34 @@ contract OrderbookTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         vm.expectRevert();
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
+    }
+
+    function testCreateOrderSmartContract(uint256 inputAmount) public {
+        vm.assume(inputAmount > 0);
+
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            address(contractUser),
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature = "";
+
+        inputToken.mint(address(contractUser), inputAmount);
+
+        assertEq(inputToken.balanceOf(address(orderbook)), 0);
+        contractUser.approve(inputToken, address(orderbook), inputAmount);
+        contractUser.createOrder(orderbook, order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
 }

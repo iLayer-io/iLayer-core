@@ -10,9 +10,8 @@ import {BaseTest} from "./BaseTest.sol";
 contract SettlerTest is BaseTest {
     constructor() BaseTest() {}
 
-    function testFillOrder() public {
-        uint256 inputAmount = 1e18;
-        uint256 outputAmount = 2 * 1e18;
+    function testFillOrder(uint256 inputAmount, uint256 outputAmount) public {
+        vm.assume(inputAmount > 0);
         address filler = user1;
 
         // 1. Build and verify order
@@ -28,12 +27,13 @@ contract SettlerTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         // 2. Setup and create order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount, "Input token not transferred to orderbook");
@@ -78,12 +78,13 @@ contract SettlerTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         // Setup order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         // Try to fill with wrong filler
@@ -117,12 +118,13 @@ contract SettlerTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         // Setup order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         // Move time past deadline
@@ -158,12 +160,13 @@ contract SettlerTest is BaseTest {
             address(0),
             ""
         );
+        bytes memory signature = buildSignature(order, user0_pk);
 
         // Setup order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, 0);
+        orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         uint256 insufficientAmount = outputAmount - 1e17; // Less than required
