@@ -12,14 +12,14 @@ contract FillOrderScript is BaseScript {
     function run() external {
         Validator.Order memory order = buildOrder();
 
-        iLayerMessage memory fillMessage = buildMessage(filler, settler, "");
+        iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
         bytes memory messageData = abi.encode(order);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
-        MockERC20 token = MockERC20(fromToken);
+        MockERC20 token = MockERC20(toToken);
         token.mint(filler, outputAmount);
-        token.approve(settler, outputAmount);
+        token.approve(address(settler), outputAmount);
 
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
         vm.stopPrank();

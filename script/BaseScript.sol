@@ -7,6 +7,7 @@ import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayer
 import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
 import {Orderbook} from "../src/Orderbook.sol";
+import {Settler} from "../src/Settler.sol";
 import {MockRouter} from "../test/mocks/MockRouter.sol";
 
 contract BaseScript is Script {
@@ -14,7 +15,7 @@ contract BaseScript is Script {
 
     Orderbook public orderbook = Orderbook(vm.envAddress("ORDERBOOK_ADDRESS"));
     MockRouter public router = MockRouter(vm.envAddress("ROUTER_ADDRESS"));
-    address settler = vm.envAddress("SETTLER_ADDRESS");
+    Settler public settler = Settler(vm.envAddress("SETTLER_ADDRESS"));
     uint256 userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
     address user = vm.envAddress("USER_ADDRESS");
     address filler = vm.envAddress("FILLER_ADDRESS");
@@ -48,8 +49,8 @@ contract BaseScript is Script {
             sourceChainSelector: block.chainid,
             destinationChainSelector: block.chainid,
             sponsored: false,
-            primaryFillerDeadline: block.timestamp + primaryDeadline,
-            deadline: block.timestamp + secondaryDeadline,
+            primaryFillerDeadline: primaryDeadline,
+            deadline: secondaryDeadline,
             callRecipient: iLayerCCMLibrary.addressToBytes64(address(0)),
             callData: ""
         });
