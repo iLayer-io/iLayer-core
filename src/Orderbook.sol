@@ -43,34 +43,6 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         emit SettlerUpdated(chain, settler);
     }
 
-    /// @notice create on-chain order, don't check the signature
-    function createOrder(Order memory order, uint16 confirmations) external payable returns (bytes32) {
-        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
-        if (user != msg.sender) revert InvalidUser();
-
-        _checkOrderValidity(order);
-
-        bytes32 orderId = hashOrder(order);
-        orders[orderId] = Status.ACTIVE;
-
-        for (uint256 i = 0; i < order.inputs.length; i++) {
-            Token memory input = order.inputs[i];
-
-            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
-            if (input.tokenId != type(uint256).max) {
-                TransferUtils.transfer(user, address(this), tokenAddress, input.tokenId, input.amount);
-            } else {
-                IERC20(tokenAddress).safeTransferFrom(user, address(this), input.amount);
-            }
-        }
-
-        _broadcastOrder(order, msg.value, confirmations);
-
-        emit OrderCreated(orderId, msg.sender, order, confirmations);
-
-        return orderId;
-    }
-
     /// @notice create off-chain order, signature must be valid
     function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
         external

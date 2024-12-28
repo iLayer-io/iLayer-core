@@ -10,9 +10,9 @@ import {Orderbook} from "../src/Orderbook.sol";
 import {Settler} from "../src/Settler.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockRouter} from "./mocks/MockRouter.sol";
-import {MockScUser} from "./mocks/MockScUser.sol";
 import {MockiLayerVerifier} from "./mocks/MockiLayerVerifier.sol";
 import {MockiLayerFees} from "./mocks/MockiLayerFees.sol";
+import {SmartContractUser} from "./mocks/SmartContractUser.sol";
 
 contract BaseTest is Test {
     // users
@@ -29,14 +29,14 @@ contract BaseTest is Test {
     MockRouter public immutable router;
     address public constant iLayerL1Address = address(0x45717569746f);
     bytes public constant msgProof = abi.encode(1);
+    bytes[] public permits = new bytes[](1);
 
     // contracts
     Orderbook public immutable orderbook;
     Settler public immutable settler;
     MockERC20 public immutable inputToken;
     MockERC20 public immutable outputToken;
-    MockScUser public immutable contractUser0;
-    MockScUser public immutable contractUser1;
+    SmartContractUser public immutable contractUser;
 
     constructor() {
         verifier = new MockiLayerVerifier();
@@ -49,8 +49,7 @@ contract BaseTest is Test {
         settler = new Settler(address(router));
         inputToken = new MockERC20("input", "INPUT");
         outputToken = new MockERC20("output", "OUTPUT");
-        contractUser0 = new MockScUser(orderbook, settler);
-        contractUser1 = new MockScUser(orderbook, settler);
+        contractUser = new SmartContractUser();
 
         deal(user0, 1 ether);
         deal(user1, 1 ether);
@@ -59,8 +58,7 @@ contract BaseTest is Test {
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
-        vm.label(address(contractUser0), "CONTRACT_USER0");
-        vm.label(address(contractUser1), "CONTRACT_USER1");
+        vm.label(address(contractUser), "CONTRACT_USER");
         vm.label(address(orderbook), "ORDERBOOK");
         vm.label(address(settler), "SETTLER");
         vm.label(address(inputToken), "INPUT TOKEN");
@@ -131,6 +129,22 @@ contract BaseTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
+    function buildMessage(address sender, address receiver, bytes memory data)
+        public
+        view
+        returns (iLayerMessage memory)
+    {
+        return iLayerMessage({
+            blockNumber: 1,
+            sourceChainSelector: 2,
+            blockConfirmations: 0,
+            sender: iLayerCCMLibrary.addressToBytes64(sender),
+            destinationChainSelector: block.chainid,
+            receiver: iLayerCCMLibrary.addressToBytes64(receiver),
+            hashedData: keccak256(data)
+        });
+    }
+
     function validateOrderWasFilled(address user, address filler, uint256 inputAmount, uint256 outputAmount)
         public
         view
@@ -147,21 +161,5 @@ contract BaseTest is Test {
         // Settler contract is empty
         assertEq(inputToken.balanceOf(address(settler)), 0, "Settler contract is not empty");
         assertEq(outputToken.balanceOf(address(settler)), 0, "Settler contract is not empty");
-    }
-
-    function buildMessage(address sender, address receiver, bytes memory data)
-        public
-        view
-        returns (iLayerMessage memory)
-    {
-        return iLayerMessage({
-            blockNumber: 1,
-            sourceChainSelector: 2,
-            blockConfirmations: 0,
-            sender: iLayerCCMLibrary.addressToBytes64(sender),
-            destinationChainSelector: block.chainid,
-            receiver: iLayerCCMLibrary.addressToBytes64(receiver),
-            hashedData: keccak256(data)
-        });
     }
 }

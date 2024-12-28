@@ -18,6 +18,8 @@ contract MockRouter is IiLayerRouter {
 
     function sendMessage(bytes64 calldata, uint256, uint16, bytes calldata) external payable returns (bytes32) {
         assert(msg.value == fee);
+
+        return "";
     }
 
     function executeMessage(iLayerMessage calldata message, bytes calldata messageData, bytes calldata extraData)
@@ -41,8 +43,8 @@ contract MockRouter is IiLayerRouter {
         iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata extraData,
-        uint256 verifierIndex,
-        bytes calldata proof
+        uint256,
+        bytes calldata
     ) external payable override {
         _executeMessage(message, messageData, extraData);
     }
