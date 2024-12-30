@@ -9,20 +9,18 @@ import {MockERC20} from "../test/mocks/MockERC20.sol";
 import {BaseScript} from "./BaseScript.sol";
 
 contract FillOrderScript is BaseScript {
-    function run() external broadcastTx {
+    function run() external broadcastTx(fillerPrivateKey) {
         Validator.Order memory order = buildOrder();
 
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
         bytes memory messageData = abi.encode(order);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
-        vm.startPrank(filler);
         MockERC20 token = MockERC20(toToken);
         token.mint(filler, outputAmount);
         token.approve(address(settler), outputAmount);
 
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
-        vm.stopPrank();
 
         iLayerMessage memory settleMessage = buildMessage(filler, address(orderbook), "");
         messageData = abi.encode(order, filler, filler);

@@ -17,6 +17,7 @@ contract BaseScript is Script {
     MockRouter public router = MockRouter(vm.envAddress("ROUTER_ADDRESS"));
     Settler public settler = Settler(vm.envAddress("SETTLER_ADDRESS"));
     uint256 userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
+    uint256 fillerPrivateKey = vm.envUint("FILLER_PRIVATE_KEY");
     address user = vm.envAddress("USER_ADDRESS");
     address filler = vm.envAddress("FILLER_ADDRESS");
     address fromToken = vm.envAddress("FROM_TOKEN_ADDRESS");
@@ -26,8 +27,8 @@ contract BaseScript is Script {
     uint256 primaryDeadline = vm.envUint("PRIMARY_DEADLINE");
     uint256 secondaryDeadline = vm.envUint("SECONDARY_DEADLINE");
 
-    modifier broadcastTx() {
-        vm.startBroadcast(userPrivateKey);
+    modifier broadcastTx(uint256 key) {
+        vm.startBroadcast(key);
         _;
         vm.stopBroadcast();
     }

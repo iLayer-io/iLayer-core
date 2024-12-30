@@ -10,7 +10,7 @@ import {MockERC20} from "../test/mocks/MockERC20.sol";
 import {BaseScript} from "./BaseScript.sol";
 
 contract CreateOrderScript is BaseScript {
-    function run() external broadcastTx {
+    function run() external broadcastTx(userPrivateKey) {
         Validator.Order memory order = buildOrder();
 
         bytes[] memory permits = new bytes[](1);
