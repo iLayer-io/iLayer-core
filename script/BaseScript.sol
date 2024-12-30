@@ -26,6 +26,12 @@ contract BaseScript is Script {
     uint256 primaryDeadline = vm.envUint("PRIMARY_DEADLINE");
     uint256 secondaryDeadline = vm.envUint("SECONDARY_DEADLINE");
 
+    modifier broadcastTx() {
+        vm.startBroadcast(userPrivateKey);
+        _;
+        vm.stopBroadcast();
+    }
+
     function buildOrder() public view returns (Validator.Order memory) {
         Validator.Token[] memory inputs = new Validator.Token[](1);
         inputs[0] = Validator.Token({

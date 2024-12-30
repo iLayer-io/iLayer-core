@@ -9,7 +9,7 @@ import {MockERC20} from "../test/mocks/MockERC20.sol";
 import {BaseScript} from "./BaseScript.sol";
 
 contract FillOrderScript is BaseScript {
-    function run() external {
+    function run() external broadcastTx {
         Validator.Order memory order = buildOrder();
 
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");

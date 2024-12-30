@@ -10,13 +10,11 @@ import {MockERC20} from "../test/mocks/MockERC20.sol";
 import {BaseScript} from "./BaseScript.sol";
 
 contract CreateOrderScript is BaseScript {
-    function run() external {
+    function run() external broadcastTx {
         Validator.Order memory order = buildOrder();
 
         bytes[] memory permits = new bytes[](1);
         bytes memory signature = buildSignature(order);
-
-        vm.startBroadcast(userPrivateKey);
 
         MockERC20 token = MockERC20(fromToken);
         token.approve(address(orderbook), inputAmount);
@@ -24,7 +22,5 @@ contract CreateOrderScript is BaseScript {
 
         bytes32 id = Orderbook(orderbook).createOrder(order, permits, signature, 0);
         console2.log("order id", string(abi.encodePacked(id)));
-
-        vm.stopBroadcast();
     }
 }
