@@ -8,6 +8,7 @@ import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
 import {Orderbook} from "../src/Orderbook.sol";
 import {Settler} from "../src/Settler.sol";
+import {Executor} from "../src/Executor.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockRouter} from "./mocks/MockRouter.sol";
 import {MockiLayerVerifier} from "./mocks/MockiLayerVerifier.sol";
@@ -34,6 +35,7 @@ contract BaseTest is Test {
     // contracts
     Orderbook public immutable orderbook;
     Settler public immutable settler;
+    Executor public immutable executor;
     MockERC20 public immutable inputToken;
     MockERC20 public immutable outputToken;
     SmartContractUser public immutable contractUser;
@@ -45,8 +47,9 @@ contract BaseTest is Test {
         /* iLayerRouter(
             1, address(verifier), address(iLayerFees), 0, iLayerCCMLibrary.addressToBytes64(iLayerL1Address)
         );*/
+        executor = new Executor();
         orderbook = new Orderbook(address(router));
-        settler = new Settler(address(router));
+        settler = new Settler(address(router), address(executor));
         inputToken = new MockERC20("input", "INPUT");
         outputToken = new MockERC20("output", "OUTPUT");
         contractUser = new SmartContractUser();

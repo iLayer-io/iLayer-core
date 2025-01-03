@@ -5,13 +5,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {ExcessivelySafeCall} from "@safecall/ExcessivelySafeCall.sol";
-import {Validator} from "./Validator.sol";
 import {TransferUtils} from "./libraries/TransferUtils.sol";
+import {Validator} from "./Validator.sol";
+import {Executor} from "./Executor.sol";
 
 contract Settler is Validator, Ownable, iLayerCCMApp {
     using SafeERC20 for IERC20;
-    using ExcessivelySafeCall for address;
+
+    Executor public immutable executor;
 
     /// @notice storing just the order statuses
     mapping(bytes32 => bool) public orders;
@@ -20,7 +21,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
 
     event OrderbookUpdated(uint256 indexed chain, address indexed orderbook);
     event OrderFilled(bytes32 indexed orderId, address indexed caller, address indexed filler);
-    event CallDataExecuted(bytes32 indexed orderId, bool status, bytes message);
+    event CallDataExecuted(bytes32 indexed orderId, bool status);
     event CallDataFailed(bytes32 indexed orderId);
 
     error InsufficientFeesPaid();
@@ -30,7 +31,9 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     error OrderAlreadyFilled();
     error RestrictedToPrimaryFiller();
 
-    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
+    constructor(address _router, address _executor) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
+        executor = Executor(_executor);
+    }
 
     function setOrderbook(uint256 chain, address orderbook) external onlyOwner {
         orderbooks[chain] = orderbook;
@@ -113,10 +116,9 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
 
         if (order.callData.length > 0) {
             address callRecipient = iLayerCCMLibrary.bytes64ToAddress(order.callRecipient);
-            (bool success, bytes memory result) =
-                callRecipient.excessivelySafeCall(fillParams.maxGas, 0, 32, order.callData);
 
-            emit CallDataExecuted(orderId, success, result);
+            bool result = executor.exec(callRecipient, fillParams.maxGas, 0, 32, order.callData);
+            emit CallDataExecuted(orderId, result);
         }
 
         emit OrderFilled(orderId, fillParams.dispatcher, filler);
