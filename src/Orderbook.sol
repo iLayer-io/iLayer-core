@@ -119,7 +119,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         bytes calldata messageData,
         bytes calldata /*extraData*/
     ) internal override onlyRouter {
-        (Order memory order, address filler, address fundingWallet) = abi.decode(messageData, (Order, address, address));
+        (Order memory order, address filler) = abi.decode(messageData, (Order, address));
 
         // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
         bytes32 orderId = hashOrder(order);
@@ -131,9 +131,9 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
             if (input.tokenId != type(uint256).max) {
-                TransferUtils.transfer(address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
+                TransferUtils.transfer(address(this), filler, tokenAddress, input.tokenId, input.amount);
             } else {
-                IERC20(tokenAddress).safeTransfer(fundingWallet, input.amount);
+                IERC20(tokenAddress).safeTransfer(filler, input.amount);
             }
         }
 
