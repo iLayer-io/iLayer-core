@@ -53,14 +53,14 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
         bytes calldata extraData
     ) internal override onlyRouter {
         // Decode messageData into `order`
-        (Order memory order) = abi.decode(messageData, (Order));
+        (Order memory order, uint256 orderNonce) = abi.decode(messageData, (Order, uint256));
         // Decode extraData
         (address fundingWallet, uint256 maxGas, uint256 fee, uint16 confirmations) =
             abi.decode(extraData, (address, uint256, uint256, uint16));
 
         if (orderbooks[order.sourceChainSelector] == address(0)) revert OrderCannotBeSettled();
 
-        bytes32 orderId = hashOrder(order);
+        bytes32 orderId = getOrderId(order, orderNonce);
 
         // Check and mark the order as filled
         _checkOrderAndMarkFilled(order, orderId, dispatcher);

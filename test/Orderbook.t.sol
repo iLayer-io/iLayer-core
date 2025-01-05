@@ -100,7 +100,7 @@ contract OrderbookTest is BaseTest {
         // should fail cause the order hasn't expired yet
         vm.startPrank(user0);
         vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order);
+        orderbook.withdrawOrder(order, 1);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 5 minutes);
@@ -108,14 +108,14 @@ contract OrderbookTest is BaseTest {
         // should fail cause it's a different user
         vm.startPrank(user1);
         vm.expectRevert(Orderbook.Unauthorized.selector);
-        orderbook.withdrawOrder(order);
+        orderbook.withdrawOrder(order, 1);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
 
         // should succeed
         vm.prank(user0);
-        orderbook.withdrawOrder(order);
+        orderbook.withdrawOrder(order, 1);
 
         assertEq(inputToken.balanceOf(address(orderbook)), 0);
         assertEq(inputToken.balanceOf(user0), inputAmount);
@@ -225,12 +225,12 @@ contract OrderbookTest is BaseTest {
         vm.warp(block.timestamp + 5 minutes);
 
         vm.prank(user0);
-        orderbook.withdrawOrder(order);
+        orderbook.withdrawOrder(order, 1);
 
         // Try to withdraw the same order again
         vm.startPrank(user0);
         vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order);
+        orderbook.withdrawOrder(order, 1);
         vm.stopPrank();
     }
 
@@ -323,7 +323,7 @@ contract OrderbookTest is BaseTest {
 
         vm.prank(user0);
         vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order);
+        orderbook.withdrawOrder(order, 1);
     }
 
     function testCreateMultipleOrdersSameUser(uint256 inputAmount1, uint256 inputAmount2) public {
@@ -462,5 +462,56 @@ contract OrderbookTest is BaseTest {
         contractUser.approve(inputToken, address(orderbook), inputAmount);
         contractUser.createOrder(orderbook, order, permits, signature, 0);
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+    }
+
+    function testWithdrawMultipleIdenticalOrders() public {
+        uint256 inputAmount = 1e18;
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+
+        inputToken.mint(user0, inputAmount * 2);
+        vm.prank(user0);
+        inputToken.approve(address(orderbook), inputAmount * 2);
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        // Add the first order
+        vm.prank(user0);
+        (bytes32 orderId1,) = orderbook.createOrder(order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        assertEq(inputToken.balanceOf(user0), inputAmount);
+
+        // Add the second order
+        vm.prank(user0);
+        (bytes32 orderId2, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount * 2);
+        assertEq(inputToken.balanceOf(user0), 0);
+
+        // Order IDs are not the same
+        assertNotEq(orderId1, orderId2);
+        // Orders expire
+        vm.warp(block.timestamp + 10 minutes);
+
+        // Withdraw the first order
+        vm.prank(user0);
+        orderbook.withdrawOrder(order, nonce);
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        assertEq(inputToken.balanceOf(user0), inputAmount);
+
+        // Withdrawing again fails
+        vm.prank(user0);
+        vm.expectRevert();
+        orderbook.withdrawOrder(order, nonce);
+        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        assertEq(inputToken.balanceOf(user0), inputAmount);
     }
 }

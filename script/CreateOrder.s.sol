@@ -20,7 +20,8 @@ contract CreateOrderScript is BaseScript {
         token.approve(address(orderbook), inputAmount);
         token.mint(user, inputAmount);
 
-        bytes32 id = Orderbook(orderbook).createOrder(order, permits, signature, 0);
+        (bytes32 id, uint256 nonce) = Orderbook(orderbook).createOrder(order, permits, signature, 0);
         console2.log("order id", string(abi.encodePacked(id)));
+        console2.log("order nonce", nonce);
     }
 }

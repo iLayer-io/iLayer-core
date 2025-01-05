@@ -33,14 +33,14 @@ contract SettlerTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount, "Input token not transferred to orderbook");
 
         // 3. Fill order
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
-        bytes memory messageData = abi.encode(order);
+        bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
@@ -54,7 +54,7 @@ contract SettlerTest is BaseTest {
 
         // 4. Settle order
         iLayerMessage memory settleMessage = buildMessage(filler, address(orderbook), "");
-        messageData = abi.encode(order, filler, filler);
+        messageData = abi.encode(order, nonce, filler, filler);
         router.deliverAndExecuteMessage(settleMessage, messageData, "", 0, msgProof);
 
         validateOrderWasFilled(user0, filler, inputAmount, outputAmount);

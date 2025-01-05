@@ -79,6 +79,10 @@ contract Validator {
         );
     }
 
+    function getOrderId(Order memory order, uint256 nonce) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(hashOrder(order), nonce));
+    }
+
     function validateOrder(Order memory order, bytes memory signature) public view returns (bool) {
         bytes32 structHash = hashOrder(order);
 
