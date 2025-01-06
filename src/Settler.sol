@@ -43,6 +43,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     struct FillParams {
         bytes32 orderId;
         address filler;
+        address fundingWallet;
         uint256 maxGas;
         uint16 confirmations;
         uint256 fee;
@@ -58,7 +59,8 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
         // Decode messageData into `order`
         (Order memory order) = abi.decode(messageData, (Order));
         // Decode extraData
-        (uint256 maxGas, uint256 fee, uint16 confirmations) = abi.decode(extraData, (uint256, uint256, uint16));
+        (address fundingWallet, uint256 maxGas, uint256 fee, uint16 confirmations) =
+            abi.decode(extraData, (address, uint256, uint256, uint16));
 
         if (orderbooks[order.sourceChainSelector] == address(0)) revert OrderCannotBeSettled();
 
@@ -70,8 +72,14 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
         // Transfer tokens to the user
         _transferFunds(order, iLayerCCMLibrary.bytes64ToAddress(order.user), dispatcher);
 
-        FillParams memory fillParams =
-            FillParams({orderId: orderId, filler: dispatcher, maxGas: maxGas, confirmations: confirmations, fee: fee});
+        FillParams memory fillParams = FillParams({
+            orderId: orderId,
+            filler: dispatcher,
+            fundingWallet: fundingWallet,
+            maxGas: maxGas,
+            confirmations: confirmations,
+            fee: fee
+        });
         _sendSettleMsgToOrderbook(order, fillParams);
     }
 
@@ -102,7 +110,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     }
 
     function _sendSettleMsgToOrderbook(Order memory order, FillParams memory fillParams) internal {
-        bytes memory data = abi.encode(order, fillParams.filler);
+        bytes memory data = abi.encode(order, fillParams.fundingWallet);
         bytes64 memory orderbook = iLayerCCMLibrary.addressToBytes64(orderbooks[order.sourceChainSelector]);
 
         router.sendMessage{value: fillParams.fee}(orderbook, order.sourceChainSelector, fillParams.confirmations, data);

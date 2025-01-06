@@ -53,7 +53,7 @@ contract SettlerTest is BaseTest {
         // 3. Fill order
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
         bytes memory messageData = abi.encode(order);
-        bytes memory extraData = abi.encode(1e18, 0, 0);
+        bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
@@ -102,7 +102,7 @@ contract SettlerTest is BaseTest {
         // Try to fill with wrong filler
         iLayerMessage memory fillMessage = buildMessage(invalidFiller, address(settler), "");
         bytes memory messageData = abi.encode(order);
-        bytes memory extraData = abi.encode(1e18, 0, 0);
+        bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(invalidFiller);
         outputToken.mint(invalidFiller, outputAmount);
@@ -144,7 +144,7 @@ contract SettlerTest is BaseTest {
 
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
         bytes memory messageData = abi.encode(order);
-        bytes memory extraData = abi.encode(1e18, 0, 0);
+        bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
@@ -184,7 +184,7 @@ contract SettlerTest is BaseTest {
         uint256 insufficientAmount = outputAmount - 1e17; // Less than required
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
         bytes memory messageData = abi.encode(order);
-        bytes memory extraData = abi.encode(insufficientAmount, 0, 0);
+        bytes memory extraData = abi.encode(filler, insufficientAmount, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, insufficientAmount);
@@ -224,7 +224,7 @@ contract SettlerTest is BaseTest {
 
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
         bytes memory messageData = abi.encode(order);
-        bytes memory extraData = abi.encode(0, 0, 0);
+        bytes memory extraData = abi.encode(user2, 0, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
@@ -234,10 +234,17 @@ contract SettlerTest is BaseTest {
         vm.expectRevert(Settler.ExternalCallFailed.selector);
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
 
-        extraData = abi.encode(1e8, 0, 0);
+        extraData = abi.encode(user2, 1e8, 0, 0);
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
+
+        iLayerMessage memory settleMessage = buildMessage(filler, address(orderbook), "");
+        messageData = abi.encode(order, user2);
+        router.deliverAndExecuteMessage(settleMessage, messageData, "", 0, msgProof);
+
         vm.stopPrank();
 
         assertEq(target.bar(), 5);
+        assertEq(inputToken.balanceOf(filler), 0);
+        assertEq(inputToken.balanceOf(user2), inputAmount);
     }
 }
