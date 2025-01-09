@@ -21,7 +21,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     event SettlerUpdated(uint256 indexed chainId, address indexed settler);
     event OrderCreated(bytes32 indexed orderId, address caller, Order order, uint16 confirmations);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
-    event OrderFilled(bytes32 indexed orderId, address indexed filler);
+    event OrderFilled(bytes32 indexed orderId);
 
     error InvalidOrderInputApprovals();
     error InvalidTokenAmount();
@@ -119,9 +119,9 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         bytes calldata messageData,
         bytes calldata /*extraData*/
     ) internal override onlyRouter {
-        (Order memory order, address filler, address fundingWallet) = abi.decode(messageData, (Order, address, address));
+        (Order memory order, address fundingWallet) = abi.decode(messageData, (Order, address));
 
-        // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
+        // we don't check anything here (like deadline) cause we assume the Settler contract has done that already
         bytes32 orderId = hashOrder(order);
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
         orders[orderId] = Status.FILLED;
@@ -137,7 +137,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
             }
         }
 
-        emit OrderFilled(orderId, filler);
+        emit OrderFilled(orderId);
     }
 
     function _checkOrderValidity(Order memory order) internal view {

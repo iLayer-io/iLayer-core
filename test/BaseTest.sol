@@ -58,6 +58,7 @@ contract BaseTest is Test {
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
+        vm.label(address(settler.executor()), "EXECUTOR");
         vm.label(address(contractUser), "CONTRACT_USER");
         vm.label(address(orderbook), "ORDERBOOK");
         vm.label(address(settler), "SETTLER");
