@@ -31,8 +31,8 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     error RestrictedToPrimaryFiller();
     error ExternalCallFailed();
 
-    constructor(address _router, address _executor) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
-        executor = Executor(_executor);
+    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
+        executor = new Executor();
     }
 
     function setOrderbook(uint256 chain, address orderbook) external onlyOwner {
