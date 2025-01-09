@@ -17,9 +17,10 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
     mapping(uint256 chain => address settler) public settlers;
+    uint256 public nonce;
 
     event SettlerUpdated(uint256 indexed chainId, address indexed settler);
-    event OrderCreated(bytes32 indexed orderId, address caller, Order order, uint16 confirmations);
+    event OrderCreated(bytes32 indexed orderId, uint256 nonce, address caller, Order order, uint16 confirmations);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
     event OrderFilled(bytes32 indexed orderId);
 
@@ -47,14 +48,15 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
         external
         payable
-        returns (bytes32)
+        returns (bytes32, uint256)
     {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
 
         _checkOrderValidity(order);
 
-        bytes32 orderId = hashOrder(order);
+        uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
+        bytes32 orderId = getOrderId(order, orderNonce);
         orders[orderId] = Status.ACTIVE;
 
         address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
@@ -80,17 +82,17 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
         _broadcastOrder(order, msg.value, confirmations);
 
-        emit OrderCreated(orderId, msg.sender, order, confirmations);
+        emit OrderCreated(orderId, orderNonce, msg.sender, order, confirmations);
 
-        return orderId;
+        return (orderId, orderNonce);
     }
 
-    function withdrawOrder(Order memory order) external {
+    function withdrawOrder(Order memory order, uint256 orderNonce) external {
         address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
         // the order can only be withdrawn by the user themselves
         if (user != msg.sender) revert Unauthorized();
 
-        bytes32 orderId = hashOrder(order);
+        bytes32 orderId = getOrderId(order, orderNonce);
         if (order.deadline > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
         }
@@ -119,10 +121,12 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         bytes calldata messageData,
         bytes calldata /*extraData*/
     ) internal override onlyRouter {
-        (Order memory order, address fundingWallet) = abi.decode(messageData, (Order, address));
+        (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
+            abi.decode(messageData, (Order, uint256, address, address));
 
-        // we don't check anything here (like deadline) cause we assume the Settler contract has done that already
-        bytes32 orderId = hashOrder(order);
+        // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
+        bytes32 orderId = getOrderId(order, orderNonce);
+
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
         orders[orderId] = Status.FILLED;
 
