@@ -37,6 +37,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error OrderCannotBeSettled();
     error Unauthorized();
     error InvalidSourceChain();
+    error InvalidSender();
     error InvalidUser();
 
     constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
@@ -126,10 +127,13 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     /// @notice receive order settlement message from the settler contract
     function _receiveMessageFromNonPeer(
         address, /*dispatcher*/
-        iLayerMessage calldata, /*message*/
+        iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata /*extraData*/
     ) internal override onlyRouter {
+        address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
+        if (settlers[message.sourceChainSelector] != sender) revert InvalidSender();
+
         (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
             abi.decode(messageData, (Order, uint256, address, address));
 
