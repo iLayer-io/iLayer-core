@@ -36,9 +36,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error InvalidSourceChain();
     error InvalidUser();
 
-    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
-        nonce = 0;
-    }
+    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
 
     function setSettler(uint256 chain, address settler) external onlyOwner {
         settlers[chain] = settler;
@@ -57,8 +55,8 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
         _checkOrderValidity(order);
 
-        nonce++; // increment the nonce to guarantee order uniqueness
-        bytes32 orderId = getOrderId(order, nonce);
+        uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
+        bytes32 orderId = getOrderId(order, orderNonce);
         orders[orderId] = Status.ACTIVE;
 
         address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
@@ -84,9 +82,9 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
         _broadcastOrder(order, msg.value, confirmations);
 
-        emit OrderCreated(orderId, nonce, msg.sender, order, confirmations);
+        emit OrderCreated(orderId, orderNonce, msg.sender, order, confirmations);
 
-        return (orderId, nonce);
+        return (orderId, orderNonce);
     }
 
     function withdrawOrder(Order memory order, uint256 orderNonce) external {

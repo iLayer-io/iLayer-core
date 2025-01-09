@@ -96,12 +96,12 @@ contract SettlerTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         // Try to fill with wrong filler
         iLayerMessage memory fillMessage = buildMessage(invalidFiller, address(settler), "");
-        bytes memory messageData = abi.encode(order);
+        bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(invalidFiller);
@@ -136,14 +136,14 @@ contract SettlerTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         // Move time past deadline
         vm.warp(block.timestamp + 6 minutes);
 
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
-        bytes memory messageData = abi.encode(order);
+        bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
@@ -178,12 +178,12 @@ contract SettlerTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         uint256 insufficientAmount = outputAmount - 1e17; // Less than required
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
-        bytes memory messageData = abi.encode(order);
+        bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, insufficientAmount, 0, 0);
 
         vm.startPrank(filler);
@@ -217,13 +217,13 @@ contract SettlerTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderbook), inputAmount);
-        orderbook.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         assertEq(target.bar(), 0);
 
         iLayerMessage memory fillMessage = buildMessage(filler, address(settler), "");
-        bytes memory messageData = abi.encode(order);
+        bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(user2, 0, 0, 0);
 
         vm.startPrank(filler);
@@ -238,9 +238,8 @@ contract SettlerTest is BaseTest {
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
 
         iLayerMessage memory settleMessage = buildMessage(filler, address(orderbook), "");
-        messageData = abi.encode(order, user2);
+        messageData = abi.encode(order, nonce, filler, user2);
         router.deliverAndExecuteMessage(settleMessage, messageData, "", 0, msgProof);
-
         vm.stopPrank();
 
         assertEq(target.bar(), 5);
