@@ -7,8 +7,9 @@ import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC2
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
-import {Validator} from "./Validator.sol";
 import {TransferUtils} from "./libraries/TransferUtils.sol";
+import {PermitHelper} from "./libraries/PermitHelper.sol";
+import {Validator} from "./Validator.sol";
 
 contract Orderbook is Validator, Ownable, iLayerCCMApp {
     using SafeERC20 for IERC20;
@@ -70,7 +71,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
                 (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
                     abi.decode(permits[i], (uint256, uint256, uint8, bytes32, bytes32));
 
-                IERC20Permit(tokenAddress).permit(user, address(this), value, deadline, v, r, s);
+                PermitHelper.trustlessPermit(tokenAddress, user, address(this), value, deadline, v, r, s);
             }
 
             if (input.tokenId != type(uint256).max) {
