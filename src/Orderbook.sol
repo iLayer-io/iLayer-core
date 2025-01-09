@@ -126,6 +126,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
 
         // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
         bytes32 orderId = getOrderId(order, orderNonce);
+
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
         orders[orderId] = Status.FILLED;
 
