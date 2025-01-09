@@ -22,7 +22,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     event SettlerUpdated(uint256 indexed chainId, address indexed settler);
     event OrderCreated(bytes32 indexed orderId, uint256 nonce, address caller, Order order, uint16 confirmations);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
-    event OrderFilled(bytes32 indexed orderId, address indexed filler);
+    event OrderFilled(bytes32 indexed orderId);
 
     error InvalidOrderInputApprovals();
     error InvalidTokenAmount();
@@ -142,7 +142,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
             }
         }
 
-        emit OrderFilled(orderId, filler);
+        emit OrderFilled(orderId);
     }
 
     function _checkOrderValidity(Order memory order) internal view {
