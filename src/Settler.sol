@@ -5,7 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {TransferUtils} from "./libraries/TransferUtils.sol";
 import {Validator} from "./Validator.sol";
 import {Executor} from "./Executor.sol";
 
@@ -100,12 +99,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
             Token memory output = order.outputs[i];
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(output.tokenAddress);
-            // If tokenId != max, treat as NFT or specialized transfer
-            if (output.tokenId != type(uint256).max) {
-                TransferUtils.transfer(filler, user, tokenAddress, output.tokenId, output.amount);
-            } else {
-                IERC20(tokenAddress).safeTransferFrom(filler, user, output.amount);
-            }
+            _transfer(output.tokenType, filler, user, tokenAddress, output.tokenId, output.amount);
         }
     }
 
