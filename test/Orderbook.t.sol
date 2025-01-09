@@ -514,4 +514,60 @@ contract OrderbookTest is BaseTest {
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
         assertEq(inputToken.balanceOf(user0), inputAmount);
     }
+
+    function testTimeBuffer() public {
+        uint256 timeBufferPeriod = 1 hours;
+        orderbook.setTimeBuffer(timeBufferPeriod);
+
+        uint256 inputAmount = 1e18;
+        uint256 outputAmount = 2e18;
+        uint256 deadline = block.timestamp + 5 minutes;
+
+        Validator.Order memory order = buildOrder(
+            user1, // filler
+            inputAmount,
+            outputAmount,
+            user0, // user
+            address(inputToken),
+            address(outputToken),
+            1 minutes, // primaryFillerDeadline
+            5 minutes, // deadline
+            address(0),
+            ""
+        );
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        inputToken.mint(user0, inputAmount);
+        vm.startPrank(user0);
+        inputToken.approve(address(orderbook), inputAmount);
+        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+
+        // Try to withdraw before deadline - should fail
+        vm.warp(block.timestamp + 4 minutes);
+        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
+        orderbook.withdrawOrder(order, nonce);
+
+        // Try to withdraw after deadline but before time buffer expires - should fail
+        vm.warp(block.timestamp + 2 minutes); // now at deadline + 1 minute
+        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
+        orderbook.withdrawOrder(order, nonce);
+
+        // Try to withdraw after deadline + time buffer - should succeed
+        vm.warp(block.timestamp + 1 hours); // well past deadline + buffer
+        orderbook.withdrawOrder(order, nonce);
+        vm.stopPrank();
+
+        assertEq(inputToken.balanceOf(user0), inputAmount);
+    }
+
+    function testTimeBufferUpdate(uint256 timeBuffer) public {
+        assertEq(orderbook.timeBuffer(), 0);
+        orderbook.setTimeBuffer(timeBuffer);
+        assertEq(orderbook.timeBuffer(), timeBuffer);
+
+        vm.startPrank(user0);
+        vm.expectRevert();
+        orderbook.setTimeBuffer(2 hours);
+        vm.stopPrank();
+    }
 }
