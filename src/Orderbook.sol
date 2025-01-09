@@ -18,8 +18,10 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     /// @notice storing settlers for each chain supported
     mapping(uint256 chain => address settler) public settlers;
     uint256 public nonce;
+    uint256 public timeBuffer;
 
     event SettlerUpdated(uint256 indexed chainId, address indexed settler);
+    event TimeBufferUpdated(uint256 oldTimeBufferVal, uint256 newTimeBufferVal);
     event OrderCreated(bytes32 indexed orderId, uint256 nonce, address caller, Order order, uint16 confirmations);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
     event OrderFilled(bytes32 indexed orderId);
@@ -42,6 +44,12 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         settlers[chain] = settler;
 
         emit SettlerUpdated(chain, settler);
+    }
+
+    function setTimeBuffer(uint256 newTimeBuffer) external onlyOwner {
+        emit TimeBufferUpdated(timeBuffer, newTimeBuffer);
+
+        timeBuffer = newTimeBuffer;
     }
 
     /// @notice create off-chain order, signature must be valid
@@ -93,7 +101,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         if (user != msg.sender) revert Unauthorized();
 
         bytes32 orderId = getOrderId(order, orderNonce);
-        if (order.deadline > block.timestamp || orders[orderId] != Status.ACTIVE) {
+        if (order.deadline + timeBuffer > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
         }
 
