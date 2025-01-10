@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 
 contract Validator {
+    using SafeERC20 for IERC20;
+
     enum Status {
         NULL,
         ACTIVE,
@@ -13,7 +17,14 @@ contract Validator {
         WITHDRAWN
     }
 
+    enum Type {
+        ERC20,
+        ERC721,
+        ERC1155
+    }
+
     struct Token {
+        Type tokenType;
         bytes64 tokenAddress;
         uint256 tokenId;
         uint256 amount;
@@ -33,7 +44,10 @@ contract Validator {
         bytes callData;
     }
 
-    bytes32 public constant TOKEN_TYPEHASH = keccak256("Token(bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
+    error UnsupportedTransfer();
+
+    bytes32 public constant TOKEN_TYPEHASH =
+        keccak256("Token(uint256 tokenType,bytes64 tokenAddress,uint256 tokenId,uint256 amount)");
     bytes32 public constant ORDER_TYPEHASH = keccak256(
         "Order(bytes64 user,bytes64 filler,bytes32 inputsHash,bytes32 outputsHash,uint256 sourceChainSelector,uint256 destinationChainSelector,bool sponsored,uint256 primaryFillerDeadline,uint256 deadline,bytes64 callRecipient,bytes callData)"
     );
@@ -46,7 +60,7 @@ contract Validator {
     );
 
     function hashTokenStruct(Token memory token) internal pure returns (bytes32) {
-        return keccak256(abi.encode(TOKEN_TYPEHASH, token.tokenAddress, token.tokenId, token.amount));
+        return keccak256(abi.encode(TOKEN_TYPEHASH, token.tokenType, token.tokenAddress, token.tokenId, token.amount));
     }
 
     function hashTokenArray(Token[] memory tokens) internal pure returns (bytes32) {
@@ -91,5 +105,18 @@ contract Validator {
 
         address orderSigner = iLayerCCMLibrary.bytes64ToAddress(order.user);
         return SignatureChecker.isValidSignatureNow(orderSigner, digest, signature);
+    }
+
+    function _transfer(Type tokenType, address from, address to, address token, uint256 id, uint256 amount) internal {
+        if (tokenType == Type.ERC20) {
+            if (from == address(this)) IERC20(token).safeTransfer(to, amount);
+            else IERC20(token).safeTransferFrom(from, to, amount);
+        } else if (tokenType == Type.ERC721) {
+            IERC721(token).safeTransferFrom(from, to, id);
+        } else if (tokenType == Type.ERC1155) {
+            IERC1155(token).safeTransferFrom(from, to, id, amount, "");
+        } else {
+            revert UnsupportedTransfer();
+        }
     }
 }

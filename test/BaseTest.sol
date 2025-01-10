@@ -85,6 +85,7 @@ contract BaseTest is Test {
         // Construct input/output token arrays
         Validator.Token[] memory inputs = new Validator.Token[](1);
         inputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
             tokenId: type(uint256).max,
             amount: inputAmount
@@ -92,6 +93,7 @@ contract BaseTest is Test {
 
         Validator.Token[] memory outputs = new Validator.Token[](1);
         outputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
             tokenId: type(uint256).max,
             amount: outputAmount
