@@ -36,6 +36,7 @@ contract BaseScript is Script {
     function buildOrder() public view returns (Validator.Order memory) {
         Validator.Token[] memory inputs = new Validator.Token[](1);
         inputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
             tokenId: type(uint256).max,
             amount: inputAmount
@@ -43,6 +44,7 @@ contract BaseScript is Script {
 
         Validator.Token[] memory outputs = new Validator.Token[](1);
         outputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
             tokenId: type(uint256).max,
             amount: outputAmount

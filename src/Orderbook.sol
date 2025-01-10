@@ -2,18 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
-import {TransferUtils} from "./libraries/TransferUtils.sol";
 import {PermitHelper} from "./libraries/PermitHelper.sol";
 import {Validator} from "./Validator.sol";
 
 contract Orderbook is Validator, Ownable, iLayerCCMApp {
-    using SafeERC20 for IERC20;
-
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
@@ -82,11 +77,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
                 PermitHelper.trustlessPermit(tokenAddress, user, address(this), value, deadline, v, r, s);
             }
 
-            if (input.tokenId != type(uint256).max) {
-                TransferUtils.transfer(user, address(this), tokenAddress, input.tokenId, input.amount);
-            } else {
-                IERC20(tokenAddress).safeTransferFrom(user, address(this), input.amount);
-            }
+            _transfer(input.tokenType, user, address(this), tokenAddress, input.tokenId, input.amount);
         }
 
         _broadcastOrder(order, msg.value, confirmations);
@@ -113,11 +104,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
             Token memory input = order.inputs[i];
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
-            if (input.tokenId != type(uint256).max) {
-                TransferUtils.transfer(address(this), user, tokenAddress, input.tokenId, input.amount);
-            } else {
-                IERC20(tokenAddress).safeTransfer(user, input.amount);
-            }
+            _transfer(input.tokenType, address(this), user, tokenAddress, input.tokenId, input.amount);
         }
 
         emit OrderWithdrawn(orderId, msg.sender);
@@ -143,11 +130,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
             Token memory input = order.inputs[i];
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
-            if (input.tokenId != type(uint256).max) {
-                TransferUtils.transfer(address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
-            } else {
-                IERC20(tokenAddress).safeTransfer(fundingWallet, input.amount);
-            }
+            _transfer(input.tokenType, address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
         }
 
         emit OrderFilled(orderId);
