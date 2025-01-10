@@ -139,7 +139,7 @@ contract BaseTest is Test {
     {
         return iLayerMessage({
             blockNumber: 1,
-            sourceChainSelector: 2,
+            sourceChainSelector: block.chainid,
             blockConfirmations: 0,
             sender: iLayerCCMLibrary.addressToBytes64(sender),
             destinationChainSelector: block.chainid,

@@ -29,6 +29,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     error OrderAlreadyFilled();
     error RestrictedToPrimaryFiller();
     error ExternalCallFailed();
+    error InvalidSender();
 
     constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
         executor = new Executor();
@@ -51,10 +52,12 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     /// @notice receive fill order message from the orderbook contract
     function _receiveMessageFromNonPeer(
         address dispatcher,
-        iLayerMessage calldata, /* message */
+        iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata extraData
     ) internal override onlyRouter {
+        _checkSender(message);
+
         // Decode messageData into `order`
         (Order memory order, uint256 orderNonce) = abi.decode(messageData, (Order, uint256));
         // Decode extraData
@@ -80,6 +83,11 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
             fee: fee
         });
         _sendSettleMsgToOrderbook(order, fillParams);
+    }
+
+    function _checkSender(iLayerMessage memory message) internal {
+        address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
+        if (orderbooks[message.sourceChainSelector] != sender) revert InvalidSender();
     }
 
     function _checkOrderAndMarkFilled(Order memory order, bytes32 orderId, address dispatcher) internal {
