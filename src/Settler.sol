@@ -30,6 +30,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
     error RestrictedToPrimaryFiller();
     error ExternalCallFailed();
     error InvalidSender();
+    error UnprocessableOrder();
 
     constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
         executor = new Executor();
@@ -56,11 +57,9 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
         bytes calldata messageData,
         bytes calldata extraData
     ) internal override onlyRouter {
-        _checkSender(message);
-
-        // Decode messageData into `order`
         (Order memory order, uint256 orderNonce) = abi.decode(messageData, (Order, uint256));
-        // Decode extraData
+        _checkOrderValidity(order, message);
+
         (address fundingWallet, uint256 maxGas, uint256 fee, uint16 confirmations) =
             abi.decode(extraData, (address, uint256, uint256, uint16));
 
@@ -85,9 +84,15 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
         _sendSettleMsgToOrderbook(order, fillParams);
     }
 
-    function _checkSender(iLayerMessage memory message) internal {
+    function _checkOrderValidity(Order memory order, iLayerMessage calldata message) internal view {
         address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
         if (orderbooks[message.sourceChainSelector] != sender) revert InvalidSender();
+
+        if (
+            order.sourceChainSelector != message.sourceChainSelector
+                || order.destinationChainSelector != message.destinationChainSelector
+                || message.destinationChainSelector != block.chainid
+        ) revert UnprocessableOrder();
     }
 
     function _checkOrderAndMarkFilled(Order memory order, bytes32 orderId, address dispatcher) internal {

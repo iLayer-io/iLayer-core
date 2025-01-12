@@ -35,9 +35,10 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error OrderCannotBeFilled();
     error OrderCannotBeSettled();
     error Unauthorized();
-    error InvalidSourceChain();
     error InvalidSender();
     error InvalidUser();
+    error InvalidSourceChain();
+    error UnprocessableOrder();
 
     constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
         maxOrderDeadline = 1 days;
@@ -69,8 +70,11 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
         if (order.deadline > block.timestamp + maxOrderDeadline) revert InvalidDeadline();
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
-
-        _checkOrderValidity(order);
+        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
+        if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
+        if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
+        if (block.timestamp > order.deadline) revert OrderExpired();
+        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
 
         uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
         bytes32 orderId = getOrderId(order, orderNonce);
@@ -130,11 +134,10 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         bytes calldata messageData,
         bytes calldata /*extraData*/
     ) internal override onlyRouter {
-        address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
-        if (settlers[message.sourceChainSelector] != sender) revert InvalidSender();
-
         (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
             abi.decode(messageData, (Order, uint256, address, address));
+
+        _checkOrderValidity(order, message);
 
         // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
         bytes32 orderId = getOrderId(order, orderNonce);
@@ -152,13 +155,15 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         emit OrderFilled(orderId);
     }
 
-    function _checkOrderValidity(Order memory order) internal view {
-        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
-        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
-        if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
+    function _checkOrderValidity(Order memory order, iLayerMessage calldata message) internal view {
+        address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
+        if (settlers[message.sourceChainSelector] != sender) revert InvalidSender();
 
-        if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
-        if (block.timestamp > order.deadline) revert OrderExpired();
+        if (
+            order.sourceChainSelector != message.destinationChainSelector
+                || order.destinationChainSelector != message.sourceChainSelector
+                || message.destinationChainSelector != block.chainid
+        ) revert UnprocessableOrder();
     }
 
     function _broadcastOrder(Order memory order, uint256 fee, uint16 confirmations) internal {
