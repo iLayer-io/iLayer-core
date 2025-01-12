@@ -33,6 +33,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error Unauthorized();
     error InvalidSender();
     error InvalidUser();
+    error InvalidSourceChain();
     error UnprocessableOrder();
 
     constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
@@ -61,6 +62,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp > order.deadline) revert OrderExpired();
+        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
 
         uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
         bytes32 orderId = getOrderId(order, orderNonce);
