@@ -515,13 +515,40 @@ contract OrderbookTest is BaseTest {
         assertEq(inputToken.balanceOf(user0), inputAmount);
     }
 
+    function testMaxDeadline() public {
+        uint256 maxDeadline = 1 hours;
+        orderbook.setMaxOrderDeadline(maxDeadline);
+
+        uint256 inputAmount = 1e18;
+        uint256 outputAmount = 2e18;
+        Validator.Order memory order = buildOrder(
+            user1,
+            inputAmount,
+            outputAmount,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            1 weeks,
+            address(0),
+            ""
+        );
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        inputToken.mint(user0, inputAmount);
+        vm.startPrank(user0);
+        inputToken.approve(address(orderbook), inputAmount);
+        vm.expectRevert(Orderbook.InvalidDeadline.selector);
+        orderbook.createOrder(order, permits, signature, 0);
+        vm.stopPrank();
+    }
+
     function testTimeBuffer() public {
         uint256 timeBufferPeriod = 1 hours;
         orderbook.setTimeBuffer(timeBufferPeriod);
 
         uint256 inputAmount = 1e18;
         uint256 outputAmount = 2e18;
-        uint256 deadline = block.timestamp + 5 minutes;
 
         Validator.Order memory order = buildOrder(
             user1, // filler
