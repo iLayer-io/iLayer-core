@@ -73,7 +73,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
         if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
-        if (block.timestamp > order.deadline) revert OrderExpired();
+        if (block.timestamp >= order.deadline) revert OrderExpired();
         if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
 
         uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
