@@ -68,6 +68,7 @@ contract BaseTest is Test {
 
         orderbook.setSettler(block.chainid, address(settler));
         settler.setOrderbook(block.chainid, address(orderbook));
+        orderbook.setMaxOrderDeadline(1 days);
     }
 
     function buildOrder(

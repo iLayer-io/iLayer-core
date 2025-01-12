@@ -13,11 +13,14 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
     mapping(uint256 chain => address settler) public settlers;
+    uint256 public maxOrderDeadline;
+
     uint256 public nonce;
     uint256 public timeBuffer;
 
     event SettlerUpdated(uint256 indexed chainId, address indexed settler);
     event TimeBufferUpdated(uint256 oldTimeBufferVal, uint256 newTimeBufferVal);
+    event MaxOrderDeadlineUpdated(uint256 oldDeadline, uint256 newDeadline);
     event OrderCreated(bytes32 indexed orderId, uint256 nonce, address caller, Order order, uint16 confirmations);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
     event OrderFilled(bytes32 indexed orderId);
@@ -25,6 +28,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error InvalidOrderInputApprovals();
     error InvalidTokenAmount();
     error InvalidOrderSignature();
+    error InvalidDeadline();
     error OrderDeadlinesMismatch();
     error OrderExpired();
     error OrderCannotBeWithdrawn();
@@ -36,7 +40,9 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error InvalidSourceChain();
     error UnprocessableOrder();
 
-    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {}
+    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
+        maxOrderDeadline = 1 days;
+    }
 
     function setSettler(uint256 chain, address settler) external onlyOwner {
         settlers[chain] = settler;
@@ -50,6 +56,11 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         timeBuffer = newTimeBuffer;
     }
 
+    function setMaxOrderDeadline(uint256 newMaxOrderDeadline) external onlyOwner {
+        emit MaxOrderDeadlineUpdated(maxOrderDeadline, newMaxOrderDeadline);
+        maxOrderDeadline = newMaxOrderDeadline;
+    }
+
     /// @notice create off-chain order, signature must be valid
     function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
         external
@@ -57,6 +68,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         returns (bytes32, uint256)
     {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
+        if (order.deadline > block.timestamp + maxOrderDeadline) revert InvalidDeadline();
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
         if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
         if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
