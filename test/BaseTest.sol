@@ -169,6 +169,52 @@ contract BaseTest is Test {
         });
     }
 
+    function buildERC1155Order(
+        address filler,
+        uint256 tokenId,
+        uint256 inputAmount,
+        uint256 outputAmount,
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 primaryFillerDeadlineOffset,
+        uint256 deadlineOffset,
+        address callRecipient,
+        bytes memory callData
+    ) public view returns (Validator.Order memory) {
+        // Construct input/output token arrays
+        Validator.Token[] memory inputs = new Validator.Token[](1);
+        inputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC1155,
+            tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
+            tokenId: tokenId,
+            amount: inputAmount
+        });
+
+        Validator.Token[] memory outputs = new Validator.Token[](1);
+        outputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
+            tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
+            tokenId: type(uint256).max,
+            amount: outputAmount
+        });
+
+        // Build the order struct
+        return Validator.Order({
+            user: iLayerCCMLibrary.addressToBytes64(user),
+            filler: iLayerCCMLibrary.addressToBytes64(filler),
+            inputs: inputs,
+            outputs: outputs,
+            sourceChainSelector: block.chainid,
+            destinationChainSelector: block.chainid,
+            sponsored: false,
+            primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
+            deadline: block.timestamp + deadlineOffset,
+            callRecipient: iLayerCCMLibrary.addressToBytes64(callRecipient),
+            callData: callData
+        });
+    }
+
     function buildSignature(Validator.Order memory order, uint256 user_pk) public view returns (bytes memory) {
         // Hash the order
         bytes32 structHash = orderbook.hashOrder(order);

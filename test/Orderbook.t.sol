@@ -66,6 +66,38 @@ contract OrderbookTest is BaseTest {
         assertEq(inputERC721Token.balanceOf(address(orderbook)), 1);
     }
 
+    function testCreateERC1155Order() public {
+        Validator.Order memory order = buildERC1155Order(
+            address(this),
+            1,
+            1,
+            1,
+            user0,
+            address(inputERC1155Token),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        vm.prank(user0);
+        inputERC1155Token.mint(user0, 1, 1, "");
+
+        vm.prank(user0);
+        inputERC1155Token.setApprovalForAll(address(orderbook), true);
+
+        assertEq(inputERC1155Token.balanceOf(address(user0), 1), 1);
+        assertEq(inputERC1155Token.balanceOf(address(orderbook), 1), 0);
+
+        vm.prank(user0);
+        orderbook.createOrder(order, permits, signature, 0);
+
+        assertEq(inputERC1155Token.balanceOf(address(user0), 1), 0);
+        assertEq(inputERC1155Token.balanceOf(address(orderbook), 1), 1);
+    }
+
     function testCreateOrderWithPermit() public {
         uint256 inputAmount = 1e18;
 
