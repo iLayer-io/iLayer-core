@@ -2,13 +2,14 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
 import {PermitHelper} from "./libraries/PermitHelper.sol";
 import {Validator} from "./Validator.sol";
 
-contract Orderbook is Validator, Ownable, iLayerCCMApp {
+contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
@@ -64,6 +65,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
         external
         payable
+        nonReentrant
         returns (bytes32, uint256)
     {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
@@ -102,7 +104,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         return (orderId, orderNonce);
     }
 
-    function withdrawOrder(Order memory order, uint256 orderNonce) external {
+    function withdrawOrder(Order memory order, uint256 orderNonce) external nonReentrant {
         address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
         // the order can only be withdrawn by the user themselves
         if (user != msg.sender) revert Unauthorized();
@@ -131,7 +133,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata /*extraData*/
-    ) internal override onlyRouter {
+    ) internal override onlyRouter nonReentrant {
         (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
             abi.decode(messageData, (Order, uint256, address, address));
 
