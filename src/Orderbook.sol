@@ -30,6 +30,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
     error InvalidOrderSignature();
     error InvalidDeadline();
     error OrderDeadlinesMismatch();
+    error OrderPrimaryFillerExpired();
     error OrderExpired();
     error OrderCannotBeWithdrawn();
     error OrderCannotBeFilled();
@@ -75,6 +76,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp {
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp > order.deadline) revert OrderExpired();
         if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
+        if (block.timestamp >= order.primaryFillerDeadline) revert OrderPrimaryFillerExpired();
 
         uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
         bytes32 orderId = getOrderId(order, orderNonce);
