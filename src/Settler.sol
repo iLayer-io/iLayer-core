@@ -2,13 +2,14 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {Validator} from "./Validator.sol";
 import {Executor} from "./Executor.sol";
 
-contract Settler is Validator, Ownable, iLayerCCMApp {
+contract Settler is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
     using SafeERC20 for IERC20;
 
     Executor public immutable executor;
@@ -56,7 +57,7 @@ contract Settler is Validator, Ownable, iLayerCCMApp {
         iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata extraData
-    ) internal override onlyRouter {
+    ) internal override onlyRouter nonReentrant {
         (Order memory order, uint256 orderNonce) = abi.decode(messageData, (Order, uint256));
         _checkOrderValidity(order, message);
 
