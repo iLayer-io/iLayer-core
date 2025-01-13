@@ -63,7 +63,7 @@ contract OrderbookTest is BaseTest {
         orderbook.createOrder(order, permits, signature, 0);
 
         assertEq(inputERC721Token.balanceOf(address(user0)), 0);
-        assertEq(inputToken.balanceOf(address(orderbook)), 1);
+        assertEq(inputERC721Token.balanceOf(address(orderbook)), 1);
     }
 
     function testCreateOrderWithPermit() public {
