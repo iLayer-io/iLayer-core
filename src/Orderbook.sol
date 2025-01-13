@@ -27,7 +27,6 @@ contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
     event OrderFilled(bytes32 indexed orderId);
 
     error InvalidOrderInputApprovals();
-    error InvalidTokenAmount();
     error InvalidOrderSignature();
     error InvalidDeadline();
     error OrderDeadlinesMismatch();
@@ -72,7 +71,6 @@ contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
         if (order.deadline > block.timestamp + maxOrderDeadline) revert InvalidDeadline();
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
-        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
         if (settlers[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp > order.deadline) revert OrderExpired();
