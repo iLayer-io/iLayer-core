@@ -126,6 +126,7 @@ contract BaseTest is Test {
 
     function buildERC721Order(
         address filler,
+        uint256 tokenId,
         uint256 outputAmount,
         address user,
         address fromToken,
@@ -140,7 +141,7 @@ contract BaseTest is Test {
         inputs[0] = Validator.Token({
             tokenType: Validator.Type.ERC721,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
-            tokenId: type(uint256).max,
+            tokenId: tokenId,
             amount: 1
         });
 

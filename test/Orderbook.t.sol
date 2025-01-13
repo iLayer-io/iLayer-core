@@ -39,6 +39,7 @@ contract OrderbookTest is BaseTest {
         Validator.Order memory order = buildERC721Order(
             address(this),
             1,
+            1,
             user0,
             address(inputERC721Token),
             address(outputToken),
