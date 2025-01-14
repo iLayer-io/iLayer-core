@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
@@ -9,7 +9,7 @@ import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
 import {PermitHelper} from "./libraries/PermitHelper.sol";
 import {Validator} from "./Validator.sol";
 
-contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
+contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
