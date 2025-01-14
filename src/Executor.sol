@@ -26,6 +26,8 @@ contract Executor is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
         uint256 fee;
     }
 
+    uint16 public constant MAX_RETURNDATA_COPY_SIZE = 32;
+
     Caller public immutable caller;
     /// @notice storing just the order statuses
     mapping(bytes32 => bool) public orders;
@@ -138,7 +140,7 @@ contract Executor is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
         if (order.callData.length > 0) {
             address callRecipient = iLayerCCMLibrary.bytes64ToAddress(order.callRecipient);
 
-            bool successful = caller.exec(callRecipient, fillParams.maxGas, 0, 32, order.callData);
+            bool successful = caller.exec(callRecipient, fillParams.maxGas, 0, MAX_RETURNDATA_COPY_SIZE, order.callData);
             if (!successful) revert ExternalCallFailed();
         }
 
