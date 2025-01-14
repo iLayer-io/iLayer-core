@@ -171,7 +171,6 @@ contract BaseTest is Test {
 
     function buildERC1155Order(
         address filler,
-        uint256 tokenId,
         uint256 inputAmount,
         uint256 outputAmount,
         address user,
@@ -187,7 +186,7 @@ contract BaseTest is Test {
         inputs[0] = Validator.Token({
             tokenType: Validator.Type.ERC1155,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
-            tokenId: tokenId,
+            tokenId: 1,
             amount: inputAmount
         });
 

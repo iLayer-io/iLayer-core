@@ -71,7 +71,6 @@ contract OrderbookTest is BaseTest {
             address(this),
             1,
             1,
-            1,
             user0,
             address(inputERC1155Token),
             address(outputToken),
