@@ -64,8 +64,6 @@ contract Settler is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
         (address fundingWallet, uint256 maxGas, uint256 fee, uint16 confirmations) =
             abi.decode(extraData, (address, uint256, uint256, uint16));
 
-        if (orderbooks[order.sourceChainSelector] == address(0)) revert OrderCannotBeSettled();
-
         bytes32 orderId = getOrderId(order, orderNonce);
 
         // Check and mark the order as filled
@@ -87,7 +85,10 @@ contract Settler is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
 
     function _checkOrderValidity(Order memory order, iLayerMessage calldata message) internal view {
         address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
-        if (orderbooks[message.sourceChainSelector] != sender) revert InvalidSender();
+        address orderbook = orderbooks[order.sourceChainSelector];
+
+        if (orderbook == address(0)) revert OrderCannotBeSettled();
+        if (orderbook != sender) revert InvalidSender();
 
         if (
             order.sourceChainSelector != message.sourceChainSelector
@@ -111,7 +112,7 @@ contract Settler is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
     }
 
     function _transferFunds(Order memory order, address user, address filler) internal {
-        for (uint256 i = 0; i < order.outputs.length; ) {
+        for (uint256 i = 0; i < order.outputs.length;) {
             Token memory output = order.outputs[i];
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(output.tokenAddress);
