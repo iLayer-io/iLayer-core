@@ -133,7 +133,7 @@ contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
         iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata /*extraData*/
-    ) internal override onlyRouter nonReentrant {
+    ) internal override nonReentrant {
         (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
             abi.decode(messageData, (Order, uint256, address, address));
 
