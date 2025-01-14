@@ -5,7 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
 import {PermitHelper} from "./libraries/PermitHelper.sol";
 import {Validator} from "./Validator.sol";
 
