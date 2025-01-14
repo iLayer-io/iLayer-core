@@ -98,10 +98,12 @@ contract Settler is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
 
     function _checkOrderAndMarkFilled(Order memory order, bytes32 orderId, address dispatcher) internal {
         if (orders[orderId]) revert OrderAlreadyFilled();
-        if (block.timestamp > order.deadline) revert OrderExpired();
+
+        uint256 currentTime = block.timestamp;
+        if (currentTime > order.deadline) revert OrderExpired();
 
         address filler = iLayerCCMLibrary.bytes64ToAddress(order.filler);
-        if (filler != address(0) && block.timestamp <= order.primaryFillerDeadline && dispatcher != filler) {
+        if (filler != address(0) && currentTime <= order.primaryFillerDeadline && dispatcher != filler) {
             revert RestrictedToPrimaryFiller();
         }
 
@@ -109,11 +111,15 @@ contract Settler is Validator, Ownable, ReentrancyGuard, iLayerCCMApp {
     }
 
     function _transferFunds(Order memory order, address user, address filler) internal {
-        for (uint256 i = 0; i < order.outputs.length; i++) {
+        for (uint256 i = 0; i < order.outputs.length; ) {
             Token memory output = order.outputs[i];
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(output.tokenAddress);
             _transfer(output.tokenType, filler, user, tokenAddress, output.tokenId, output.amount);
+
+            unchecked {
+                i++;
+            }
         }
     }
 
