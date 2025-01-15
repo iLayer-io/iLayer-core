@@ -94,7 +94,7 @@ contract Validator {
     }
 
     function getOrderId(Order memory order, uint256 nonce) public pure returns (bytes32) {
-        return keccak256(abi.encode(order.user, nonce, order.sourceChainSelector, order.destinationChainSelector));
+        return keccak256(abi.encode(nonce, order));
     }
 
     function validateOrder(Order memory order, bytes memory signature) public view returns (bool) {
