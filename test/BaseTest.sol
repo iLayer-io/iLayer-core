@@ -9,6 +9,8 @@ import {Validator} from "../src/Validator.sol";
 import {Orderbook} from "../src/Orderbook.sol";
 import {Settler} from "../src/Settler.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
+import {MockERC721} from "./mocks/MockERC721.sol";
+import {MockERC1155} from "./mocks/MockERC1155.sol";
 import {MockRouter} from "./mocks/MockRouter.sol";
 import {MockiLayerVerifier} from "./mocks/MockiLayerVerifier.sol";
 import {MockiLayerFees} from "./mocks/MockiLayerFees.sol";
@@ -36,6 +38,8 @@ contract BaseTest is Test {
     Settler public immutable settler;
     MockERC20 public immutable inputToken;
     MockERC20 public immutable outputToken;
+    MockERC721 public immutable inputERC721Token;
+    MockERC1155 public immutable inputERC1155Token;
     SmartContractUser public immutable contractUser;
 
     constructor() {
@@ -48,6 +52,8 @@ contract BaseTest is Test {
         orderbook = new Orderbook(address(router));
         settler = new Settler(address(router));
         inputToken = new MockERC20("input", "INPUT");
+        inputERC721Token = new MockERC721("input", "INPUT");
+        inputERC1155Token = new MockERC1155("https://ilayer.io");
         outputToken = new MockERC20("output", "OUTPUT");
         contractUser = new SmartContractUser();
 
@@ -63,6 +69,8 @@ contract BaseTest is Test {
         vm.label(address(orderbook), "ORDERBOOK");
         vm.label(address(settler), "SETTLER");
         vm.label(address(inputToken), "INPUT TOKEN");
+        vm.label(address(inputERC721Token), "INPUT ERC721 TOKEN");
+        vm.label(address(inputERC1155Token), "INPUT ERC1155 TOKEN");
         vm.label(address(outputToken), "OUTPUT TOKEN");
         vm.label(address(router), "ROUTER");
 
@@ -89,6 +97,96 @@ contract BaseTest is Test {
             tokenType: Validator.Type.ERC20,
             tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
             tokenId: type(uint256).max,
+            amount: inputAmount
+        });
+
+        Validator.Token[] memory outputs = new Validator.Token[](1);
+        outputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
+            tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
+            tokenId: type(uint256).max,
+            amount: outputAmount
+        });
+
+        // Build the order struct
+        return Validator.Order({
+            user: iLayerCCMLibrary.addressToBytes64(user),
+            filler: iLayerCCMLibrary.addressToBytes64(filler),
+            inputs: inputs,
+            outputs: outputs,
+            sourceChainSelector: block.chainid,
+            destinationChainSelector: block.chainid,
+            sponsored: false,
+            primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
+            deadline: block.timestamp + deadlineOffset,
+            callRecipient: iLayerCCMLibrary.addressToBytes64(callRecipient),
+            callData: callData
+        });
+    }
+
+    function buildERC721Order(
+        address filler,
+        uint256 tokenId,
+        uint256 outputAmount,
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 primaryFillerDeadlineOffset,
+        uint256 deadlineOffset,
+        address callRecipient,
+        bytes memory callData
+    ) public view returns (Validator.Order memory) {
+        // Construct input/output token arrays
+        Validator.Token[] memory inputs = new Validator.Token[](1);
+        inputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC721,
+            tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
+            tokenId: tokenId,
+            amount: 1
+        });
+
+        Validator.Token[] memory outputs = new Validator.Token[](1);
+        outputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC20,
+            tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
+            tokenId: type(uint256).max,
+            amount: outputAmount
+        });
+
+        // Build the order struct
+        return Validator.Order({
+            user: iLayerCCMLibrary.addressToBytes64(user),
+            filler: iLayerCCMLibrary.addressToBytes64(filler),
+            inputs: inputs,
+            outputs: outputs,
+            sourceChainSelector: block.chainid,
+            destinationChainSelector: block.chainid,
+            sponsored: false,
+            primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
+            deadline: block.timestamp + deadlineOffset,
+            callRecipient: iLayerCCMLibrary.addressToBytes64(callRecipient),
+            callData: callData
+        });
+    }
+
+    function buildERC1155Order(
+        address filler,
+        uint256 inputAmount,
+        uint256 outputAmount,
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 primaryFillerDeadlineOffset,
+        uint256 deadlineOffset,
+        address callRecipient,
+        bytes memory callData
+    ) public view returns (Validator.Order memory) {
+        // Construct input/output token arrays
+        Validator.Token[] memory inputs = new Validator.Token[](1);
+        inputs[0] = Validator.Token({
+            tokenType: Validator.Type.ERC1155,
+            tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
+            tokenId: 1,
             amount: inputAmount
         });
 
