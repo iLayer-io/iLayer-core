@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
@@ -12,7 +12,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
-contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp, IERC165, IERC721Receiver, IERC1155Receiver {
+contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IERC165, IERC721Receiver, IERC1155Receiver {
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
