@@ -6,16 +6,16 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
-import {Orderbook} from "../src/Orderbook.sol";
-import {Settler} from "../src/Settler.sol";
+import {OrderHub} from "../src/OrderHub.sol";
+import {Executor} from "../src/Executor.sol";
 import {MockRouter} from "../test/mocks/MockRouter.sol";
 
 contract BaseScript is Script {
     bytes public constant msgProof = abi.encode(1);
 
-    Orderbook public orderbook = Orderbook(vm.envAddress("ORDERBOOK_ADDRESS"));
+    OrderHub public orderhub = OrderHub(vm.envAddress("ORDERBOOK_ADDRESS"));
     MockRouter public router = MockRouter(vm.envAddress("ROUTER_ADDRESS"));
-    Settler public settler = Settler(vm.envAddress("SETTLER_ADDRESS"));
+    Executor public executor = Executor(vm.envAddress("SETTLER_ADDRESS"));
     uint256 userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
     uint256 fillerPrivateKey = vm.envUint("FILLER_PRIVATE_KEY");
     address user = vm.envAddress("USER_ADDRESS");
@@ -66,8 +66,8 @@ contract BaseScript is Script {
     }
 
     function buildSignature(Validator.Order memory order) public view returns (bytes memory) {
-        bytes32 structHash = orderbook.hashOrder(order);
-        bytes32 domainSeparator = orderbook.DOMAIN_SEPARATOR();
+        bytes32 structHash = orderhub.hashOrder(order);
+        bytes32 domainSeparator = orderhub.DOMAIN_SEPARATOR();
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
         return abi.encodePacked(r, s, v);

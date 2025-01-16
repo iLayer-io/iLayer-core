@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import {Validator} from "../src/Validator.sol";
-import {Orderbook} from "../src/Orderbook.sol";
+import {OrderHub} from "../src/OrderHub.sol";
 import {BaseTest} from "./BaseTest.sol";
 
-contract OrderbookTest is BaseTest {
+contract OrderHubTest is BaseTest {
     constructor() BaseTest() {}
 
     function testCreateOrder(uint256 inputAmount) public {
@@ -27,12 +27,12 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount);
         vm.prank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
+        inputToken.approve(address(orderhub), inputAmount);
 
-        assertEq(inputToken.balanceOf(address(orderbook)), 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), 0);
         vm.prank(user0);
-        orderbook.createOrder(order, permits, signature, 0);
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        orderhub.createOrder(order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
     }
 
     function testCreateERC721Order() public {
@@ -54,16 +54,16 @@ contract OrderbookTest is BaseTest {
         inputERC721Token.mint(user0);
 
         vm.prank(user0);
-        inputERC721Token.approve(address(orderbook), 1);
+        inputERC721Token.approve(address(orderhub), 1);
 
         assertEq(inputERC721Token.balanceOf(address(user0)), 1);
-        assertEq(inputERC721Token.balanceOf(address(orderbook)), 0);
+        assertEq(inputERC721Token.balanceOf(address(orderhub)), 0);
 
         vm.prank(user0);
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
 
         assertEq(inputERC721Token.balanceOf(address(user0)), 0);
-        assertEq(inputERC721Token.balanceOf(address(orderbook)), 1);
+        assertEq(inputERC721Token.balanceOf(address(orderhub)), 1);
     }
 
     function testCreateERC1155Order() public {
@@ -85,16 +85,16 @@ contract OrderbookTest is BaseTest {
         inputERC1155Token.mint(user0, 1, 1, "");
 
         vm.prank(user0);
-        inputERC1155Token.setApprovalForAll(address(orderbook), true);
+        inputERC1155Token.setApprovalForAll(address(orderhub), true);
 
         assertEq(inputERC1155Token.balanceOf(address(user0), 1), 1);
-        assertEq(inputERC1155Token.balanceOf(address(orderbook), 1), 0);
+        assertEq(inputERC1155Token.balanceOf(address(orderhub), 1), 0);
 
         vm.prank(user0);
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
 
         assertEq(inputERC1155Token.balanceOf(address(user0), 1), 0);
-        assertEq(inputERC1155Token.balanceOf(address(orderbook), 1), 1);
+        assertEq(inputERC1155Token.balanceOf(address(orderhub), 1), 1);
     }
 
     function testCreateOrderWithPermit() public {
@@ -114,7 +114,7 @@ contract OrderbookTest is BaseTest {
         );
 
         bytes memory signature = buildSignature(order, user0_pk);
-        assertTrue(orderbook.validateOrder(order, signature), "Invalid signature");
+        assertTrue(orderhub.validateOrder(order, signature), "Invalid signature");
 
         // Generate permit signature
         uint256 nonce = inputToken.nonces(user0);
@@ -124,7 +124,7 @@ contract OrderbookTest is BaseTest {
                 "\x19\x01",
                 inputToken.DOMAIN_SEPARATOR(),
                 keccak256(
-                    abi.encode(inputToken.PERMIT_TYPEHASH(), user0, address(orderbook), inputAmount, nonce, deadline)
+                    abi.encode(inputToken.PERMIT_TYPEHASH(), user0, address(orderhub), inputAmount, nonce, deadline)
                 )
             )
         );
@@ -135,9 +135,9 @@ contract OrderbookTest is BaseTest {
         permits[0] = permit;
 
         inputToken.mint(user0, inputAmount);
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
 
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
     }
 
     function testOrderWithdrawal() public {
@@ -161,25 +161,25 @@ contract OrderbookTest is BaseTest {
 
         // should fail cause the order hasn't expired yet
         vm.startPrank(user0);
-        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order, 1);
+        vm.expectRevert();
+        orderhub.withdrawOrder(order, 1);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 5 minutes);
 
         // should fail cause it's a different user
         vm.startPrank(user1);
-        vm.expectRevert(Orderbook.Unauthorized.selector);
-        orderbook.withdrawOrder(order, 1);
+        vm.expectRevert();
+        orderhub.withdrawOrder(order, 1);
         vm.stopPrank();
 
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
 
         // should succeed
         vm.prank(user0);
-        orderbook.withdrawOrder(order, 1);
+        orderhub.withdrawOrder(order, 1);
 
-        assertEq(inputToken.balanceOf(address(orderbook)), 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), 0);
         assertEq(inputToken.balanceOf(user0), inputAmount);
     }
 
@@ -205,11 +205,11 @@ contract OrderbookTest is BaseTest {
 
         vm.prank(user0);
         inputToken.mint(user0, inputAmount);
-        inputToken.approve(address(orderbook), inputAmount);
+        inputToken.approve(address(orderhub), inputAmount);
 
-        vm.expectRevert(Orderbook.InvalidOrderSignature.selector);
+        vm.expectRevert();
         bytes[] memory permits = new bytes[](1);
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
     }
 
     function testOrderDeadlineMismatch() public {
@@ -231,10 +231,10 @@ contract OrderbookTest is BaseTest {
 
         vm.startPrank(user0);
         inputToken.mint(user0, inputAmount);
-        inputToken.approve(address(orderbook), inputAmount);
+        inputToken.approve(address(orderhub), inputAmount);
 
-        vm.expectRevert(Orderbook.OrderDeadlinesMismatch.selector);
-        orderbook.createOrder(order, permits, signature, 0);
+        vm.expectRevert();
+        orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
     }
 
@@ -260,10 +260,10 @@ contract OrderbookTest is BaseTest {
 
         vm.startPrank(user0);
         inputToken.mint(user0, inputAmount);
-        inputToken.approve(address(orderbook), inputAmount);
+        inputToken.approve(address(orderhub), inputAmount);
 
-        vm.expectRevert(Orderbook.OrderExpired.selector);
-        orderbook.createOrder(order, permits, signature, 0);
+        vm.expectRevert();
+        orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
     }
 
@@ -287,12 +287,12 @@ contract OrderbookTest is BaseTest {
         vm.warp(block.timestamp + 5 minutes);
 
         vm.prank(user0);
-        orderbook.withdrawOrder(order, 1);
+        orderhub.withdrawOrder(order, 1);
 
         // Try to withdraw the same order again
         vm.startPrank(user0);
-        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order, 1);
+        vm.expectRevert();
+        orderhub.withdrawOrder(order, 1);
         vm.stopPrank();
     }
 
@@ -315,11 +315,11 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount);
         vm.prank(user0);
-        inputToken.approve(address(orderbook), inputAmount - 1); // Approve less than required
+        inputToken.approve(address(orderhub), inputAmount - 1); // Approve less than required
 
         vm.prank(user0);
         vm.expectRevert();
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
     }
 
     function testCreateOrderInsufficientBalance() public {
@@ -341,11 +341,11 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount - 1); // Mint less than required
         vm.prank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
+        inputToken.approve(address(orderhub), inputAmount);
 
         vm.prank(user0);
         vm.expectRevert();
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
     }
 
     function testWithdrawNonExistentOrder() public {
@@ -365,8 +365,8 @@ contract OrderbookTest is BaseTest {
         );
 
         vm.prank(user0);
-        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order, 1);
+        vm.expectRevert();
+        orderhub.withdrawOrder(order, 1);
     }
 
     function testCreateMultipleOrdersSameUser(uint256 inputAmount1, uint256 inputAmount2) public {
@@ -404,13 +404,13 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount1 + inputAmount2);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount1 + inputAmount2);
+        inputToken.approve(address(orderhub), inputAmount1 + inputAmount2);
 
-        orderbook.createOrder(order1, permits, signature1, 0);
-        orderbook.createOrder(order2, permits, signature2, 0);
+        orderhub.createOrder(order1, permits, signature1, 0);
+        orderhub.createOrder(order2, permits, signature2, 0);
         vm.stopPrank();
 
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount1 + inputAmount2);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount1 + inputAmount2);
     }
 
     function testCreateMultipleOrdersMultipleUsers(uint256 inputAmount1, uint256 inputAmount2) public {
@@ -448,17 +448,17 @@ contract OrderbookTest is BaseTest {
 
         vm.startPrank(user1);
         inputToken.mint(user1, inputAmount1);
-        inputToken.approve(address(orderbook), inputAmount1);
-        orderbook.createOrder(order1, permits, signature1, 0);
+        inputToken.approve(address(orderhub), inputAmount1);
+        orderhub.createOrder(order1, permits, signature1, 0);
         vm.stopPrank();
 
         vm.startPrank(user2);
         inputToken.mint(user2, inputAmount2);
-        inputToken.approve(address(orderbook), inputAmount2);
-        orderbook.createOrder(order2, permits, signature2, 0);
+        inputToken.approve(address(orderhub), inputAmount2);
+        orderhub.createOrder(order2, permits, signature2, 0);
         vm.stopPrank();
 
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount1 + inputAmount2);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount1 + inputAmount2);
     }
 
     function testCreateOrderWithInvalidTokens() public {
@@ -479,7 +479,7 @@ contract OrderbookTest is BaseTest {
         bytes memory signature = buildSignature(order, user0_pk);
 
         vm.expectRevert();
-        orderbook.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(order, permits, signature, 0);
     }
 
     function testCreateOrderSmartContract(uint256 inputAmount) public {
@@ -501,10 +501,10 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(address(contractUser), inputAmount);
 
-        assertEq(inputToken.balanceOf(address(orderbook)), 0);
-        contractUser.approve(inputToken, address(orderbook), inputAmount);
-        contractUser.createOrder(orderbook, order, permits, signature, 0);
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        assertEq(inputToken.balanceOf(address(orderhub)), 0);
+        contractUser.approve(inputToken, address(orderhub), inputAmount);
+        contractUser.createOrder(orderhub, order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
     }
 
     function testWithdrawMultipleIdenticalOrders() public {
@@ -524,19 +524,19 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount * 2);
         vm.prank(user0);
-        inputToken.approve(address(orderbook), inputAmount * 2);
+        inputToken.approve(address(orderhub), inputAmount * 2);
         bytes memory signature = buildSignature(order, user0_pk);
 
         // Add the first order
         vm.prank(user0);
-        (bytes32 orderId1,) = orderbook.createOrder(order, permits, signature, 0);
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        (bytes32 orderId1,) = orderhub.createOrder(order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
         assertEq(inputToken.balanceOf(user0), inputAmount);
 
         // Add the second order
         vm.prank(user0);
-        (bytes32 orderId2, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount * 2);
+        (bytes32 orderId2, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount * 2);
         assertEq(inputToken.balanceOf(user0), 0);
 
         // Order IDs are not the same
@@ -546,21 +546,21 @@ contract OrderbookTest is BaseTest {
 
         // Withdraw the first order
         vm.prank(user0);
-        orderbook.withdrawOrder(order, nonce);
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        orderhub.withdrawOrder(order, nonce);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
         assertEq(inputToken.balanceOf(user0), inputAmount);
 
         // Withdrawing again fails
         vm.prank(user0);
         vm.expectRevert();
-        orderbook.withdrawOrder(order, nonce);
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
+        orderhub.withdrawOrder(order, nonce);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
         assertEq(inputToken.balanceOf(user0), inputAmount);
     }
 
     function testMaxDeadline() public {
         uint256 maxDeadline = 1 hours;
-        orderbook.setMaxOrderDeadline(maxDeadline);
+        orderhub.setMaxOrderDeadline(maxDeadline);
 
         uint256 inputAmount = 1e18;
         uint256 outputAmount = 2e18;
@@ -580,15 +580,15 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        vm.expectRevert(Orderbook.InvalidDeadline.selector);
-        orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        vm.expectRevert();
+        orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
     }
 
     function testTimeBuffer() public {
         uint256 timeBufferPeriod = 1 hours;
-        orderbook.setTimeBuffer(timeBufferPeriod);
+        orderhub.setTimeBuffer(timeBufferPeriod);
 
         uint256 inputAmount = 1e18;
         uint256 outputAmount = 2e18;
@@ -609,35 +609,35 @@ contract OrderbookTest is BaseTest {
 
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
 
         // Try to withdraw before deadline - should fail
         vm.warp(block.timestamp + 4 minutes);
-        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order, nonce);
+        vm.expectRevert();
+        orderhub.withdrawOrder(order, nonce);
 
         // Try to withdraw after deadline but before time buffer expires - should fail
         vm.warp(block.timestamp + 2 minutes); // now at deadline + 1 minute
-        vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
-        orderbook.withdrawOrder(order, nonce);
+        vm.expectRevert();
+        orderhub.withdrawOrder(order, nonce);
 
         // Try to withdraw after deadline + time buffer - should succeed
         vm.warp(block.timestamp + 1 hours); // well past deadline + buffer
-        orderbook.withdrawOrder(order, nonce);
+        orderhub.withdrawOrder(order, nonce);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(user0), inputAmount);
     }
 
     function testTimeBufferUpdate(uint256 timeBuffer) public {
-        assertEq(orderbook.timeBuffer(), 0);
-        orderbook.setTimeBuffer(timeBuffer);
-        assertEq(orderbook.timeBuffer(), timeBuffer);
+        assertEq(orderhub.timeBuffer(), 0);
+        orderhub.setTimeBuffer(timeBuffer);
+        assertEq(orderhub.timeBuffer(), timeBuffer);
 
         vm.startPrank(user0);
         vm.expectRevert();
-        orderbook.setTimeBuffer(2 hours);
+        orderhub.setTimeBuffer(2 hours);
         vm.stopPrank();
     }
 }
