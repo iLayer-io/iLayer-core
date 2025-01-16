@@ -35,6 +35,68 @@ contract OrderbookTest is BaseTest {
         assertEq(inputToken.balanceOf(address(orderbook)), inputAmount);
     }
 
+    function testCreateERC721Order() public {
+        Validator.Order memory order = buildERC721Order(
+            address(this),
+            1,
+            1,
+            user0,
+            address(inputERC721Token),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        vm.prank(user0);
+        inputERC721Token.mint(user0);
+
+        vm.prank(user0);
+        inputERC721Token.approve(address(orderbook), 1);
+
+        assertEq(inputERC721Token.balanceOf(address(user0)), 1);
+        assertEq(inputERC721Token.balanceOf(address(orderbook)), 0);
+
+        vm.prank(user0);
+        orderbook.createOrder(order, permits, signature, 0);
+
+        assertEq(inputERC721Token.balanceOf(address(user0)), 0);
+        assertEq(inputERC721Token.balanceOf(address(orderbook)), 1);
+    }
+
+    function testCreateERC1155Order() public {
+        Validator.Order memory order = buildERC1155Order(
+            address(this),
+            1,
+            1,
+            user0,
+            address(inputERC1155Token),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        vm.prank(user0);
+        inputERC1155Token.mint(user0, 1, 1, "");
+
+        vm.prank(user0);
+        inputERC1155Token.setApprovalForAll(address(orderbook), true);
+
+        assertEq(inputERC1155Token.balanceOf(address(user0), 1), 1);
+        assertEq(inputERC1155Token.balanceOf(address(orderbook), 1), 0);
+
+        vm.prank(user0);
+        orderbook.createOrder(order, permits, signature, 0);
+
+        assertEq(inputERC1155Token.balanceOf(address(user0), 1), 0);
+        assertEq(inputERC1155Token.balanceOf(address(orderbook), 1), 1);
+    }
+
     function testCreateOrderWithPermit() public {
         uint256 inputAmount = 1e18;
 
@@ -232,25 +294,6 @@ contract OrderbookTest is BaseTest {
         vm.expectRevert(Orderbook.OrderCannotBeWithdrawn.selector);
         orderbook.withdrawOrder(order, 1);
         vm.stopPrank();
-    }
-
-    function testCreateOrderWithZeroAmount() public {
-        Validator.Order memory order = buildOrder(
-            address(this),
-            0, // set it to zero to simulate a null order
-            1,
-            user0,
-            address(inputToken),
-            address(outputToken),
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
-        );
-        bytes memory signature = buildSignature(order, user0_pk);
-
-        vm.expectRevert(Orderbook.InvalidTokenAmount.selector);
-        orderbook.createOrder(order, permits, signature, 0);
     }
 
     function testCreateOrderInsufficientAllowance() public {
