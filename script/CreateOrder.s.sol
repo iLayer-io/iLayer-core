@@ -5,7 +5,7 @@ import {console2} from "forge-std/console2.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
-import {Orderbook} from "../src/Orderbook.sol";
+import {OrderHub} from "../src/OrderHub.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
 import {BaseScript} from "./BaseScript.sol";
 
@@ -17,10 +17,10 @@ contract CreateOrderScript is BaseScript {
         bytes memory signature = buildSignature(order);
 
         MockERC20 token = MockERC20(fromToken);
-        token.approve(address(orderbook), inputAmount);
+        token.approve(address(orderhub), inputAmount);
         token.mint(user, inputAmount);
 
-        (bytes32 id, uint256 nonce) = Orderbook(orderbook).createOrder(order, permits, signature, 0);
+        (bytes32 id, uint256 nonce) = OrderHub(orderhub).createOrder(order, permits, signature, 0);
         console2.log("order id", string(abi.encodePacked(id)));
         console2.log("order nonce", nonce);
     }

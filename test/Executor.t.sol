@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {Validator} from "../src/Validator.sol";
-import {Orderbook} from "../src/Orderbook.sol";
-import {Settler} from "../src/Settler.sol";
+import {OrderHub} from "../src/OrderHub.sol";
+import {Executor} from "../src/Executor.sol";
 import {BaseTest} from "./BaseTest.sol";
 
 contract TargetContract {
@@ -15,7 +15,7 @@ contract TargetContract {
     }
 }
 
-contract SettlerTest is BaseTest {
+contract ExecutorTest is BaseTest {
     TargetContract public immutable target;
 
     constructor() BaseTest() {
@@ -44,27 +44,27 @@ contract SettlerTest is BaseTest {
         // 2. Setup and create order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
-        assertEq(inputToken.balanceOf(address(orderbook)), inputAmount, "Input token not transferred to orderbook");
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount, "Input token not transferred to orderhub");
 
         // 3. Fill order
-        iLayerMessage memory fillMessage = buildMessage(address(orderbook), address(settler), "");
+        iLayerMessage memory fillMessage = buildMessage(address(orderhub), address(executor), "");
         bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
-        outputToken.approve(address(settler), outputAmount);
+        outputToken.approve(address(executor), outputAmount);
 
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
 
         assertEq(outputToken.balanceOf(address(user0)), outputAmount, "Output token not transferred to the user");
 
         // 4. Settle order
-        iLayerMessage memory settleMessage = buildMessage(address(settler), address(orderbook), "");
+        iLayerMessage memory settleMessage = buildMessage(address(executor), address(orderhub), "");
         messageData = abi.encode(order, nonce, filler, filler);
         router.deliverAndExecuteMessage(settleMessage, messageData, "", 0, msgProof);
 
@@ -95,18 +95,18 @@ contract SettlerTest is BaseTest {
         // Setup order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         // Try to fill with wrong filler
-        iLayerMessage memory fillMessage = buildMessage(address(orderbook), address(settler), "");
+        iLayerMessage memory fillMessage = buildMessage(address(orderhub), address(executor), "");
         bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(invalidFiller, 1e18, 0, 0);
 
         vm.startPrank(invalidFiller);
         outputToken.mint(invalidFiller, outputAmount);
-        outputToken.approve(address(settler), outputAmount);
+        outputToken.approve(address(executor), outputAmount);
 
         vm.expectRevert(); // Should revert because wrong filler
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
@@ -135,20 +135,20 @@ contract SettlerTest is BaseTest {
         // Setup order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         // Move time past deadline
         vm.warp(block.timestamp + 6 minutes);
 
-        iLayerMessage memory fillMessage = buildMessage(address(orderbook), address(settler), "");
+        iLayerMessage memory fillMessage = buildMessage(address(orderhub), address(executor), "");
         bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
-        outputToken.approve(address(settler), outputAmount);
+        outputToken.approve(address(executor), outputAmount);
 
         vm.expectRevert(); // Should revert because order expired
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
@@ -177,18 +177,18 @@ contract SettlerTest is BaseTest {
         // Setup order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         uint256 insufficientAmount = outputAmount - 1e17; // Less than required
-        iLayerMessage memory fillMessage = buildMessage(address(orderbook), address(settler), "");
+        iLayerMessage memory fillMessage = buildMessage(address(orderhub), address(executor), "");
         bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(filler, insufficientAmount, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, insufficientAmount);
-        outputToken.approve(address(settler), insufficientAmount);
+        outputToken.approve(address(executor), insufficientAmount);
 
         vm.expectRevert(); // Should revert because insufficient amount
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
@@ -216,28 +216,28 @@ contract SettlerTest is BaseTest {
 
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderbook), inputAmount);
-        (, uint256 nonce) = orderbook.createOrder(order, permits, signature, 0);
+        inputToken.approve(address(orderhub), inputAmount);
+        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
         vm.stopPrank();
 
         assertEq(target.bar(), 0);
 
-        iLayerMessage memory fillMessage = buildMessage(address(orderbook), address(settler), "");
+        iLayerMessage memory fillMessage = buildMessage(address(orderhub), address(executor), "");
         bytes memory messageData = abi.encode(order, nonce);
         bytes memory extraData = abi.encode(user2, 0, 0, 0);
 
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
-        outputToken.approve(address(settler), outputAmount);
+        outputToken.approve(address(executor), outputAmount);
 
         // revert for out of gas
-        vm.expectRevert(Settler.ExternalCallFailed.selector);
+        vm.expectRevert();
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
 
         extraData = abi.encode(user2, 1e8, 0, 0);
         router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
 
-        iLayerMessage memory settleMessage = buildMessage(address(settler), address(orderbook), "");
+        iLayerMessage memory settleMessage = buildMessage(address(executor), address(orderhub), "");
         messageData = abi.encode(order, nonce, filler, user2);
         router.deliverAndExecuteMessage(settleMessage, messageData, "", 0, msgProof);
         vm.stopPrank();

@@ -6,8 +6,8 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
-import {Orderbook} from "../src/Orderbook.sol";
-import {Settler} from "../src/Settler.sol";
+import {OrderHub} from "../src/OrderHub.sol";
+import {Executor} from "../src/Executor.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockERC721} from "./mocks/MockERC721.sol";
 import {MockERC1155} from "./mocks/MockERC1155.sol";
@@ -34,8 +34,8 @@ contract BaseTest is Test {
     bytes[] public permits = new bytes[](1);
 
     // contracts
-    Orderbook public immutable orderbook;
-    Settler public immutable settler;
+    OrderHub public immutable orderhub;
+    Executor public immutable executor;
     MockERC20 public immutable inputToken;
     MockERC20 public immutable outputToken;
     MockERC721 public immutable inputERC721Token;
@@ -49,8 +49,8 @@ contract BaseTest is Test {
         /* iLayerRouter(
             1, address(verifier), address(iLayerFees), 0, iLayerCCMLibrary.addressToBytes64(iLayerL1Address)
         );*/
-        orderbook = new Orderbook(address(router));
-        settler = new Settler(address(router));
+        orderhub = new OrderHub(address(router));
+        executor = new Executor(address(router));
         inputToken = new MockERC20("input", "INPUT");
         inputERC721Token = new MockERC721("input", "INPUT");
         inputERC1155Token = new MockERC1155("https://ilayer.io");
@@ -64,19 +64,19 @@ contract BaseTest is Test {
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
-        vm.label(address(settler.executor()), "EXECUTOR");
+        vm.label(address(executor.caller()), "CALLER");
         vm.label(address(contractUser), "CONTRACT_USER");
-        vm.label(address(orderbook), "ORDERBOOK");
-        vm.label(address(settler), "SETTLER");
+        vm.label(address(orderhub), "ORDER HUB");
+        vm.label(address(executor), "EXECUTOR");
         vm.label(address(inputToken), "INPUT TOKEN");
         vm.label(address(inputERC721Token), "INPUT ERC721 TOKEN");
         vm.label(address(inputERC1155Token), "INPUT ERC1155 TOKEN");
         vm.label(address(outputToken), "OUTPUT TOKEN");
         vm.label(address(router), "ROUTER");
 
-        orderbook.setSettler(block.chainid, address(settler));
-        settler.setOrderbook(block.chainid, address(orderbook));
-        orderbook.setMaxOrderDeadline(1 days);
+        orderhub.setExecutor(block.chainid, address(executor));
+        executor.setOrderHub(block.chainid, address(orderhub));
+        orderhub.setMaxOrderDeadline(1 days);
     }
 
     function buildOrder(
@@ -216,10 +216,10 @@ contract BaseTest is Test {
 
     function buildSignature(Validator.Order memory order, uint256 user_pk) public view returns (bytes memory) {
         // Hash the order
-        bytes32 structHash = orderbook.hashOrder(order);
+        bytes32 structHash = orderhub.hashOrder(order);
 
         // Compute the EIP-712 domain separator as the contract does
-        bytes32 domainSeparator = orderbook.DOMAIN_SEPARATOR();
+        bytes32 domainSeparator = orderhub.DOMAIN_SEPARATOR();
 
         // Create the EIP-712 typed data hash
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -251,17 +251,17 @@ contract BaseTest is Test {
         public
         view
     {
-        // Orderbook is empty
-        assertEq(inputToken.balanceOf(address(orderbook)), 0, "Orderbook contract is not empty");
-        assertEq(outputToken.balanceOf(address(orderbook)), 0, "Orderbook contract is not empty");
+        // OrderHub is empty
+        assertEq(inputToken.balanceOf(address(orderhub)), 0, "OrderHub contract is not empty");
+        assertEq(outputToken.balanceOf(address(orderhub)), 0, "OrderHub contract is not empty");
         // User has received the desired tokens
         assertEq(inputToken.balanceOf(user), 0, "User still holds input tokens");
         assertEq(outputToken.balanceOf(user), outputAmount, "User didn't receive output tokens");
         // Filler has received their payment
         assertEq(inputToken.balanceOf(filler), inputAmount, "Filler didn't receive input tokens");
         assertEq(outputToken.balanceOf(filler), 0, "Filler still holds output tokens");
-        // Settler contract is empty
-        assertEq(inputToken.balanceOf(address(settler)), 0, "Settler contract is not empty");
-        assertEq(outputToken.balanceOf(address(settler)), 0, "Settler contract is not empty");
+        // Executor contract is empty
+        assertEq(inputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
+        assertEq(outputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
     }
 }
