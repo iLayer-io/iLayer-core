@@ -644,4 +644,36 @@ contract OrderHubTest is BaseTest {
         orderhub.setTimeBuffer(2 hours);
         vm.stopPrank();
     }
+
+    function testReplyAttack() public {
+        uint256 inputAmount = 1 ether;
+        Validator.Order memory order = buildOrder(
+            address(this),
+            inputAmount,
+            1,
+            user0,
+            address(inputToken),
+            address(outputToken),
+            1 minutes,
+            5 minutes,
+            address(0),
+            ""
+        );
+        bytes memory signature = buildSignature(order, user0_pk);
+
+        inputToken.mint(user0, 10 * inputAmount);
+        vm.prank(user0);
+        inputToken.approve(address(orderhub), 10 * inputAmount);
+
+        assertEq(inputToken.balanceOf(address(orderhub)), 0);
+
+        // create 2 orders reusing the same signature
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
+
+        // replay attack is not possible
+        vm.expectRevert();
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
+        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
+    }
 }
