@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
@@ -81,7 +81,6 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
             revert InvalidDeadline();
         }
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
-        if (order.inputs[0].amount == 0) revert InvalidTokenAmount();
         if (settlers[order.destinationChainSelector] == address(0)) {
             revert OrderCannotBeSettled();
         }
