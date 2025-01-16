@@ -247,6 +247,16 @@ contract BaseTest is Test {
         });
     }
 
+    function buildOrderRequest(Validator.Order memory order, uint256 nonce)
+        public
+        view
+        returns (OrderHub.OrderRequest memory)
+    {
+        OrderHub.OrderRequest memory request =
+            OrderHub.OrderRequest({order: order, deadline: block.timestamp + 1 days, nonce: nonce});
+        return request;
+    }
+
     function validateOrderWasFilled(address user, address filler, uint256 inputAmount, uint256 outputAmount)
         public
         view

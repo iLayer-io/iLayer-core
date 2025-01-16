@@ -20,7 +20,9 @@ contract CreateOrderScript is BaseScript {
         token.approve(address(orderhub), inputAmount);
         token.mint(user, inputAmount);
 
-        (bytes32 id, uint256 nonce) = OrderHub(orderhub).createOrder(order, permits, signature, 0);
+        OrderHub.OrderRequest memory request =
+            OrderHub.OrderRequest({order: order, deadline: block.timestamp + 1 days, nonce: 1});
+        (bytes32 id, uint256 nonce) = OrderHub(orderhub).createOrder(request, permits, signature, 0);
         console2.log("order id", string(abi.encodePacked(id)));
         console2.log("order nonce", nonce);
     }
