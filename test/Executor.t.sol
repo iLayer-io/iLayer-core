@@ -45,7 +45,7 @@ contract ExecutorTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount, "Input token not transferred to orderhub");
@@ -96,7 +96,7 @@ contract ExecutorTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
 
         // Try to fill with wrong filler
@@ -136,7 +136,7 @@ contract ExecutorTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
 
         // Move time past deadline
@@ -178,7 +178,7 @@ contract ExecutorTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
 
         uint256 insufficientAmount = outputAmount - 1e17; // Less than required
@@ -217,7 +217,7 @@ contract ExecutorTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
 
         assertEq(target.bar(), 0);

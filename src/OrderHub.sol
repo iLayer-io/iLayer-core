@@ -25,25 +25,34 @@ contract OrderHub is
     IERC721Receiver,
     IERC1155Receiver
 {
+    struct OrderRequest {
+        uint256 deadline;
+        uint256 nonce;
+        Order order;
+    }
+
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
+    /// @notice storing user order request nonces
+    mapping(address user => mapping(uint256 nonce => bool used)) public requestNonces;
     /// @notice storing executors for each chain supported
     mapping(uint256 chain => address executor) public executors;
     uint256 public maxOrderDeadline;
-
     uint256 public nonce;
     uint256 public timeBuffer;
 
     event ExecutorUpdated(uint256 indexed chainId, address indexed oldExecutor, address indexed newExecutor);
     event TimeBufferUpdated(uint256 oldTimeBufferVal, uint256 newTimeBufferVal);
     event MaxOrderDeadlineUpdated(uint256 oldDeadline, uint256 newDeadline);
-    event OrderCreated(bytes32 indexed orderId, uint256 nonce, address caller, Order order, uint16 confirmations);
+    event OrderCreated(bytes32 indexed orderId, uint256 nonce, Order order, uint16 confirmations);
     event ERC721Received(address operator, address from, uint256 tokenId, bytes data);
     event ERC1155Received(address operator, address from, uint256 id, uint256 value, bytes data);
     event ERC1155BatchReceived(address operator, address from, uint256[] ids, uint256[] values, bytes data);
     event OrderWithdrawn(bytes32 indexed orderId, address caller);
     event OrderFilled(bytes32 indexed orderId);
 
+    error RequestNonceReused();
+    error RequestExpired();
     error InvalidOrderInputApprovals();
     error InvalidOrderSignature();
     error InvalidDeadline();
@@ -81,45 +90,33 @@ contract OrderHub is
     }
 
     /// @notice create off-chain order, signature must be valid
-    function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
-        external
-        payable
-        nonReentrant
-        returns (bytes32, uint256)
-    {
-        if (order.inputs.length != permits.length) {
-            revert InvalidOrderInputApprovals();
-        }
-        if (order.deadline > block.timestamp + maxOrderDeadline) {
-            revert InvalidDeadline();
-        }
-        if (!validateOrder(order, signature)) revert InvalidOrderSignature();
-        if (executors[order.destinationChainSelector] == address(0)) {
-            revert OrderCannotBeSettled();
-        }
-        if (order.primaryFillerDeadline > order.deadline) {
-            revert OrderDeadlinesMismatch();
-        }
-        if (block.timestamp > order.deadline) revert OrderExpired();
-        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
-        if (block.timestamp >= order.primaryFillerDeadline) revert OrderPrimaryFillerExpired();
+    function createOrder(
+        OrderRequest memory request,
+        bytes[] memory permits,
+        bytes memory signature,
+        uint16 confirmations
+    ) external payable nonReentrant returns (bytes32, uint256) {
+        Order memory order = request.order;
+        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
 
+        // validate order request
+        if (requestNonces[user][request.nonce]) revert RequestNonceReused();
+        if (block.timestamp > request.deadline) revert RequestExpired();
+
+        // validate order
+        _checkOrderValidity(order, permits, signature);
+
+        requestNonces[user][request.nonce] = true; // mark the nonce as used
         uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
         bytes32 orderId = getOrderId(order, orderNonce);
         orders[orderId] = Status.ACTIVE;
 
-        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
             address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
-
             if (permits[i].length > 0) {
-                // Decode the permit signature and call permit on the token
-                (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
-                    abi.decode(permits[i], (uint256, uint256, uint8, bytes32, bytes32));
-
-                PermitHelper.trustlessPermit(tokenAddress, user, address(this), value, deadline, v, r, s);
+                _applyPermits(permits[i], user, tokenAddress);
             }
 
             _transfer(input.tokenType, user, address(this), tokenAddress, input.tokenId, input.amount);
@@ -127,7 +124,7 @@ contract OrderHub is
 
         _broadcastOrder(order, msg.value, confirmations);
 
-        emit OrderCreated(orderId, orderNonce, msg.sender, order, confirmations);
+        emit OrderCreated(orderId, orderNonce, order, confirmations);
 
         return (orderId, orderNonce);
     }
@@ -234,5 +231,24 @@ contract OrderHub is
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
             || interfaceId == type(IERC1155Receiver).interfaceId;
+    }
+
+    function _checkOrderValidity(Order memory order, bytes[] memory permits, bytes memory signature) internal view {
+        if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
+        if (order.deadline > block.timestamp + maxOrderDeadline) revert InvalidDeadline();
+        if (!validateOrder(order, signature)) revert InvalidOrderSignature();
+        if (executors[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
+        if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
+        if (block.timestamp > order.deadline) revert OrderExpired();
+        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
+        if (block.timestamp >= order.primaryFillerDeadline) revert OrderPrimaryFillerExpired();
+    }
+
+    function _applyPermits(bytes memory permit, address user, address token) internal {
+        // Decode the permit signature and call permit on the token
+        (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
+            abi.decode(permit, (uint256, uint256, uint8, bytes32, bytes32));
+
+        PermitHelper.trustlessPermit(token, user, address(this), value, deadline, v, r, s);
     }
 }

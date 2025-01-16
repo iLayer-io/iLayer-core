@@ -31,7 +31,7 @@ contract OrderHubTest is BaseTest {
 
         assertEq(inputToken.balanceOf(address(orderhub)), 0);
         vm.prank(user0);
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
     }
 
@@ -60,7 +60,7 @@ contract OrderHubTest is BaseTest {
         assertEq(inputERC721Token.balanceOf(address(orderhub)), 0);
 
         vm.prank(user0);
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
 
         assertEq(inputERC721Token.balanceOf(address(user0)), 0);
         assertEq(inputERC721Token.balanceOf(address(orderhub)), 1);
@@ -91,7 +91,7 @@ contract OrderHubTest is BaseTest {
         assertEq(inputERC1155Token.balanceOf(address(orderhub), 1), 0);
 
         vm.prank(user0);
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
 
         assertEq(inputERC1155Token.balanceOf(address(user0), 1), 0);
         assertEq(inputERC1155Token.balanceOf(address(orderhub), 1), 1);
@@ -135,7 +135,7 @@ contract OrderHubTest is BaseTest {
         permits[0] = permit;
 
         inputToken.mint(user0, inputAmount);
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
 
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
     }
@@ -209,7 +209,7 @@ contract OrderHubTest is BaseTest {
 
         vm.expectRevert();
         bytes[] memory permits = new bytes[](1);
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
     }
 
     function testOrderDeadlineMismatch() public {
@@ -234,7 +234,7 @@ contract OrderHubTest is BaseTest {
         inputToken.approve(address(orderhub), inputAmount);
 
         vm.expectRevert();
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
     }
 
@@ -263,7 +263,7 @@ contract OrderHubTest is BaseTest {
         inputToken.approve(address(orderhub), inputAmount);
 
         vm.expectRevert();
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
     }
 
@@ -319,7 +319,7 @@ contract OrderHubTest is BaseTest {
 
         vm.prank(user0);
         vm.expectRevert();
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
     }
 
     function testCreateOrderInsufficientBalance() public {
@@ -345,7 +345,7 @@ contract OrderHubTest is BaseTest {
 
         vm.prank(user0);
         vm.expectRevert();
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
     }
 
     function testWithdrawNonExistentOrder() public {
@@ -406,8 +406,12 @@ contract OrderHubTest is BaseTest {
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount1 + inputAmount2);
 
-        orderhub.createOrder(order1, permits, signature1, 0);
-        orderhub.createOrder(order2, permits, signature2, 0);
+        orderhub.createOrder(buildOrderRequest(order1, 1), permits, signature1, 0);
+
+        vm.expectRevert(); // request nonce reused
+        orderhub.createOrder(buildOrderRequest(order2, 1), permits, signature2, 0);
+
+        orderhub.createOrder(buildOrderRequest(order2, 2), permits, signature2, 0);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount1 + inputAmount2);
@@ -449,13 +453,13 @@ contract OrderHubTest is BaseTest {
         vm.startPrank(user1);
         inputToken.mint(user1, inputAmount1);
         inputToken.approve(address(orderhub), inputAmount1);
-        orderhub.createOrder(order1, permits, signature1, 0);
+        orderhub.createOrder(buildOrderRequest(order1, 1), permits, signature1, 0);
         vm.stopPrank();
 
         vm.startPrank(user2);
         inputToken.mint(user2, inputAmount2);
         inputToken.approve(address(orderhub), inputAmount2);
-        orderhub.createOrder(order2, permits, signature2, 0);
+        orderhub.createOrder(buildOrderRequest(order2, 1), permits, signature2, 0);
         vm.stopPrank();
 
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount1 + inputAmount2);
@@ -479,7 +483,7 @@ contract OrderHubTest is BaseTest {
         bytes memory signature = buildSignature(order, user0_pk);
 
         vm.expectRevert();
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
     }
 
     function testCreateOrderSmartContract(uint256 inputAmount) public {
@@ -529,13 +533,13 @@ contract OrderHubTest is BaseTest {
 
         // Add the first order
         vm.prank(user0);
-        (bytes32 orderId1,) = orderhub.createOrder(order, permits, signature, 0);
+        (bytes32 orderId1,) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount);
         assertEq(inputToken.balanceOf(user0), inputAmount);
 
         // Add the second order
         vm.prank(user0);
-        (bytes32 orderId2, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (bytes32 orderId2, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 2), permits, signature, 0);
         assertEq(inputToken.balanceOf(address(orderhub)), inputAmount * 2);
         assertEq(inputToken.balanceOf(user0), 0);
 
@@ -582,7 +586,7 @@ contract OrderHubTest is BaseTest {
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
         vm.expectRevert();
-        orderhub.createOrder(order, permits, signature, 0);
+        orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
         vm.stopPrank();
     }
 
@@ -610,7 +614,7 @@ contract OrderHubTest is BaseTest {
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
         inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(order, permits, signature, 0);
+        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
 
         // Try to withdraw before deadline - should fail
         vm.warp(block.timestamp + 4 minutes);
