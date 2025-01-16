@@ -11,17 +11,30 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
-contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IERC165, IERC721Receiver, IERC1155Receiver {
+/**
+ * @title OrderHub contract
+ * @dev Contract that stores user orders and input tokens
+ * @custom:security-contact security@ilayer.io
+ */
+contract OrderHub is
+    Validator,
+    Ownable2Step,
+    ReentrancyGuard,
+    iLayerCCMApp,
+    IERC165,
+    IERC721Receiver,
+    IERC1155Receiver
+{
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
-    /// @notice storing settlers for each chain supported
-    mapping(uint256 chain => address settler) public settlers;
+    /// @notice storing executors for each chain supported
+    mapping(uint256 chain => address executor) public executors;
     uint256 public maxOrderDeadline;
 
     uint256 public nonce;
     uint256 public timeBuffer;
 
-    event SettlerUpdated(uint256 indexed chainId, address indexed settler);
+    event ExecutorUpdated(uint256 indexed chainId, address indexed oldExecutor, address indexed newExecutor);
     event TimeBufferUpdated(uint256 oldTimeBufferVal, uint256 newTimeBufferVal);
     event MaxOrderDeadlineUpdated(uint256 oldDeadline, uint256 newDeadline);
     event OrderCreated(bytes32 indexed orderId, uint256 nonce, address caller, Order order, uint16 confirmations);
@@ -50,10 +63,10 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
         maxOrderDeadline = 1 days;
     }
 
-    function setSettler(uint256 chain, address settler) external onlyOwner {
-        settlers[chain] = settler;
+    function setExecutor(uint256 chain, address executor) external onlyOwner {
+        emit ExecutorUpdated(chain, executors[chain], executor);
 
-        emit SettlerUpdated(chain, settler);
+        executors[chain] = executor;
     }
 
     function setTimeBuffer(uint256 newTimeBuffer) external onlyOwner {
@@ -81,7 +94,7 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
             revert InvalidDeadline();
         }
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
-        if (settlers[order.destinationChainSelector] == address(0)) {
+        if (executors[order.destinationChainSelector] == address(0)) {
             revert OrderCannotBeSettled();
         }
         if (order.primaryFillerDeadline > order.deadline) {
@@ -142,7 +155,7 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
         emit OrderWithdrawn(orderId, msg.sender);
     }
 
-    /// @notice receive order settlement message from the settler contract
+    /// @notice receive order settlement message from the executor contract
     function _receiveMessageFromNonPeer(
         address, /*dispatcher*/
         iLayerMessage calldata message,
@@ -154,7 +167,7 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
 
         _checkOrderValidity(order, message);
 
-        // we don't check anything here (deadline, filler) cause we assume the Settler contract has done that already
+        // we don't check anything here (deadline, filler) cause we assume the executor contract has done that already
         bytes32 orderId = getOrderId(order, orderNonce);
 
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
@@ -172,7 +185,7 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
 
     function _checkOrderValidity(Order memory order, iLayerMessage calldata message) internal view {
         address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
-        if (settlers[message.sourceChainSelector] != sender) {
+        if (executors[message.sourceChainSelector] != sender) {
             revert InvalidSender();
         }
 
@@ -185,7 +198,7 @@ contract Orderbook is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp, IE
 
     function _broadcastOrder(Order memory order, uint256 fee, uint16 confirmations) internal {
         bytes memory data = abi.encode(order);
-        bytes64 memory dest = iLayerCCMLibrary.addressToBytes64(settlers[order.destinationChainSelector]);
+        bytes64 memory dest = iLayerCCMLibrary.addressToBytes64(executors[order.destinationChainSelector]);
         router.sendMessage{value: fee}(dest, order.destinationChainSelector, confirmations, data);
     }
 
