@@ -19,6 +19,8 @@ contract Settler is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
     /// @notice storing orderbooks for each chain supported
     mapping(uint256 => address) public orderbooks;
 
+    uint16 public constant MAX_RETURNDATA_COPY_SIZE = 32;
+
     event OrderbookUpdated(uint256 indexed chain, address indexed orderbook);
     event OrderFilled(bytes32 indexed orderId, address indexed filler);
     event CallDataFailed(bytes32 indexed orderId);
@@ -133,7 +135,7 @@ contract Settler is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
         if (order.callData.length > 0) {
             address callRecipient = iLayerCCMLibrary.bytes64ToAddress(order.callRecipient);
 
-            bool successful = executor.exec(callRecipient, fillParams.maxGas, 0, 32, order.callData);
+            bool successful = executor.exec(callRecipient, fillParams.maxGas, 0, MAX_RETURNDATA_COPY_SIZE, order.callData);
             if (!successful) revert ExternalCallFailed();
         }
 
