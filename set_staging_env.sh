@@ -21,21 +21,21 @@ WETH=$(forge create --broadcast test/mocks/MockERC20.sol:MockERC20 --rpc-url=$RP
 export WETH_ADDRESS=$(echo "$WETH" | grep "Deployed to:" | awk '{print $3}')
 ROUTER=$(forge create --broadcast test/mocks/MockRouter.sol:MockRouter --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY)
 export ROUTER_ADDRESS=$(echo "$ROUTER" | grep "Deployed to:" | awk '{print $3}')
-ORDERBOOK=$(forge create --broadcast src/Orderbook.sol:Orderbook --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY --constructor-args $ROUTER_ADDRESS)
-export ORDERBOOK_ADDRESS=$(echo "$ORDERBOOK" | grep "Deployed to:" | awk '{print $3}')
-SETTLER=$(forge create --broadcast src/Settler.sol:Settler --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY --constructor-args $ROUTER_ADDRESS)
-export SETTLER_ADDRESS=$(echo "$SETTLER" | grep "Deployed to:" | awk '{print $3}')
+ORDERHUB=$(forge create --broadcast src/OrderHub.sol:OrderHub --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY --constructor-args $ROUTER_ADDRESS)
+export ORDERHUB_ADDRESS=$(echo "$ORDERHUB" | grep "Deployed to:" | awk '{print $3}')
+EXECUTOR=$(forge create --broadcast src/Executor.sol:Executor --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY --constructor-args $ROUTER_ADDRESS)
+export EXECUTOR_ADDRESS=$(echo "$EXECUTOR" | grep "Deployed to:" | awk '{print $3}')
 
-cast send --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY $ORDERBOOK_ADDRESS "setSettler(uint256,address)" $CHAINID $SETTLER_ADDRESS
-cast send --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY $SETTLER_ADDRESS "setOrderbook(uint256,address)" $CHAINID $ORDERBOOK_ADDRESS
+cast send --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY $ORDERHUB_ADDRESS "setExecutor(uint256,address)" $CHAINID $EXECUTOR_ADDRESS
+cast send --rpc-url=$RPC_URL --private-key=$DEPLOYER_PRIVATE_KEY $EXECUTOR_ADDRESS "setOrderHub(uint256,address)" $CHAINID $ORDERHUB_ADDRESS
 
 echo " "
 echo "---------------------------------------------------------------------------------"
 echo "Mock USDC contract deployed to $USDC_ADDRESS"
 echo "Mock WETH contract deployed to $WETH_ADDRESS"
 echo "Mock Router contract deployed to $ROUTER_ADDRESS"
-echo "Orderbook contract deployed to $ORDERBOOK_ADDRESS"
-echo "Settler contract deployed to $SETTLER_ADDRESS"
+echo "OrderHub contract deployed to $ORDERHUB_ADDRESS"
+echo "Executor contract deployed to $EXECUTOR_ADDRESS"
 echo "---------------------------------------------------------------------------------"
 
 wait $ANVIL_PID

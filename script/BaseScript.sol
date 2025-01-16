@@ -13,9 +13,9 @@ import {MockRouter} from "../test/mocks/MockRouter.sol";
 contract BaseScript is Script {
     bytes public constant msgProof = abi.encode(1);
 
-    OrderHub public orderhub = OrderHub(vm.envAddress("ORDERBOOK_ADDRESS"));
+    OrderHub public orderhub = OrderHub(vm.envAddress("ORDERHUB_ADDRESS"));
     MockRouter public router = MockRouter(vm.envAddress("ROUTER_ADDRESS"));
-    Executor public executor = Executor(vm.envAddress("SETTLER_ADDRESS"));
+    Executor public executor = Executor(vm.envAddress("EXECUTOR_ADDRESS"));
     uint256 userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
     uint256 fillerPrivateKey = vm.envUint("FILLER_PRIVATE_KEY");
     address user = vm.envAddress("USER_ADDRESS");
