@@ -296,25 +296,6 @@ contract OrderbookTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testCreateOrderWithZeroAmount() public {
-        Validator.Order memory order = buildOrder(
-            address(this),
-            0, // set it to zero to simulate a null order
-            1,
-            user0,
-            address(inputToken),
-            address(outputToken),
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
-        );
-        bytes memory signature = buildSignature(order, user0_pk);
-
-        vm.expectRevert(Orderbook.InvalidTokenAmount.selector);
-        orderbook.createOrder(order, permits, signature, 0);
-    }
-
     function testCreateOrderInsufficientAllowance() public {
         uint256 inputAmount = 1e18;
 

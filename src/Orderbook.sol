@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
 import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
 import {IiLayerRouter} from "@ilayer/interfaces/IiLayerRouter.sol";
@@ -11,7 +12,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
-contract Orderbook is Validator, Ownable, iLayerCCMApp, IERC165, IERC721Receiver, IERC1155Receiver {
+contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp, IERC165, IERC721Receiver, IERC1155Receiver {
     /// @notice storing just the order statuses
     mapping(bytes32 orderId => Status status) public orders;
     /// @notice storing settlers for each chain supported
@@ -32,7 +33,6 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp, IERC165, IERC721Receiver
     event OrderFilled(bytes32 indexed orderId);
 
     error InvalidOrderInputApprovals();
-    error InvalidTokenAmount();
     error InvalidOrderSignature();
     error InvalidDeadline();
     error OrderDeadlinesMismatch();
@@ -71,6 +71,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp, IERC165, IERC721Receiver
     function createOrder(Order memory order, bytes[] memory permits, bytes memory signature, uint16 confirmations)
         external
         payable
+        nonReentrant
         returns (bytes32, uint256)
     {
         if (order.inputs.length != permits.length) {
@@ -120,7 +121,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp, IERC165, IERC721Receiver
         return (orderId, orderNonce);
     }
 
-    function withdrawOrder(Order memory order, uint256 orderNonce) external {
+    function withdrawOrder(Order memory order, uint256 orderNonce) external nonReentrant {
         address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
         // the order can only be withdrawn by the user themselves
         if (user != msg.sender) revert Unauthorized();
@@ -149,7 +150,7 @@ contract Orderbook is Validator, Ownable, iLayerCCMApp, IERC165, IERC721Receiver
         iLayerMessage calldata message,
         bytes calldata messageData,
         bytes calldata /*extraData*/
-    ) internal override onlyRouter {
+    ) internal override onlyRouter nonReentrant {
         (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
             abi.decode(messageData, (Order, uint256, address, address));
 
