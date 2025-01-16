@@ -36,6 +36,7 @@ contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp, IERC165
     error InvalidOrderSignature();
     error InvalidDeadline();
     error OrderDeadlinesMismatch();
+    error OrderPrimaryFillerExpired();
     error OrderExpired();
     error OrderCannotBeWithdrawn();
     error OrderCannotBeFilled();
@@ -89,9 +90,8 @@ contract Orderbook is Validator, Ownable, ReentrancyGuard, iLayerCCMApp, IERC165
             revert OrderDeadlinesMismatch();
         }
         if (block.timestamp > order.deadline) revert OrderExpired();
-        if (order.sourceChainSelector != block.chainid) {
-            revert InvalidSourceChain();
-        }
+        if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
+        if (block.timestamp >= order.primaryFillerDeadline) revert OrderPrimaryFillerExpired();
 
         uint256 orderNonce = ++nonce; // increment the nonce to guarantee order uniqueness
         bytes32 orderId = getOrderId(order, orderNonce);
