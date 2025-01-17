@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Strings} from "./libraries/Strings.sol";
 import {Root} from "./Root.sol";
 
 contract Validator is Root {
