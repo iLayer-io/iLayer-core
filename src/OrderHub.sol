@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
-import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
+import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {PermitHelper} from "./libraries/PermitHelper.sol";
 import {Validator} from "./Validator.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -16,15 +15,7 @@ import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Re
  * @dev Contract that stores user orders and input tokens
  * @custom:security-contact security@ilayer.io
  */
-contract OrderHub is
-    Validator,
-    Ownable2Step,
-    ReentrancyGuard,
-    iLayerCCMApp,
-    IERC165,
-    IERC721Receiver,
-    IERC1155Receiver
-{
+contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IERC721Receiver, IERC1155Receiver {
     struct OrderRequest {
         uint256 deadline;
         uint256 nonce;
@@ -68,7 +59,7 @@ contract OrderHub is
     error InvalidSourceChain();
     error UnprocessableOrder();
 
-    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
+    constructor(address _router) Validator() Ownable(msg.sender) OApp(_router, msg.sender) {
         maxOrderDeadline = 1 days;
     }
 

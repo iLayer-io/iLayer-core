@@ -4,9 +4,8 @@ pragma solidity ^0.8.24;
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {iLayerCCMApp} from "@ilayer/iLayerCCMApp.sol";
-import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {Validator} from "./Validator.sol";
+import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import {Root} from "./Root.sol";
 import {Caller} from "./Caller.sol";
 
 /**
@@ -14,7 +13,7 @@ import {Caller} from "./Caller.sol";
  * @dev Contract that manages order fill and output token transfer from the solver to the user
  * @custom:security-contact security@ilayer.io
  */
-contract Executor is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
+contract Executor is Root, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
 
     struct FillParams {
@@ -48,7 +47,7 @@ contract Executor is Validator, Ownable2Step, ReentrancyGuard, iLayerCCMApp {
     error InvalidSender();
     error UnprocessableOrder();
 
-    constructor(address _router) Validator() Ownable(msg.sender) iLayerCCMApp(_router) {
+    constructor(address _router) Validator() Ownable(msg.sender) OApp(_router, msg.sender) {
         caller = new Caller();
     }
 

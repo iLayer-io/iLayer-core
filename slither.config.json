@@ -6,6 +6,7 @@
     "forge-std/=lib/forge-std/src/",
     "@openzeppelin/=lib/openzeppelin-contracts/",
     "@safecall=lib/ExcessivelySafeCall/src/",
-    "@ilayer=lib/iLayer-CCM-EVM/src/"
+    "@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/",
+    "@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/"
   ]
 }
