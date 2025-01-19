@@ -239,7 +239,7 @@ contract OrderHub is
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
         if (executors[order.destinationChainSelector] == address(0)) revert OrderCannotBeSettled();
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
-        if (block.timestamp > order.deadline) revert OrderExpired();
+        if (block.timestamp >= order.deadline) revert OrderExpired();
         if (order.sourceChainSelector != block.chainid) revert InvalidSourceChain();
         if (block.timestamp >= order.primaryFillerDeadline) revert OrderPrimaryFillerExpired();
     }
