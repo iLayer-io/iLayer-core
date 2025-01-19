@@ -44,6 +44,10 @@ contract Root {
 
     error UnsupportedTransfer();
 
+function addressToBytes32(address _addr) public pure returns (bytes32) {
+    return bytes32(uint256(uint160(_addr)));
+}
+
     function getOrderId(Order memory order, uint256 nonce) public pure returns (bytes32) {
         return keccak256(abi.encode(nonce, order));
     }

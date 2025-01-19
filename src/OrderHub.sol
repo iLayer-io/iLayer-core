@@ -3,12 +3,13 @@ pragma solidity ^0.8.24;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {PermitHelper} from "./libraries/PermitHelper.sol";
-import {Validator} from "./Validator.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import {Strings} from "./libraries/Strings.sol";
+import {PermitHelper} from "./libraries/PermitHelper.sol";
+import {Validator} from "./Validator.sol";
 
 /**
  * @title OrderHub contract
@@ -88,7 +89,7 @@ contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IE
         uint16 confirmations
     ) external payable nonReentrant returns (bytes32, uint256) {
         Order memory order = request.order;
-        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
+        address user = Strings.parseAddress(order.user);
 
         // validate order request
         if (requestNonces[user][request.nonce]) revert RequestNonceReused();
@@ -105,7 +106,7 @@ contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IE
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = Strings.parseAddress(input.tokenAddress);
             if (permits[i].length > 0) {
                 _applyPermits(permits[i], user, tokenAddress);
             }
@@ -121,10 +122,7 @@ contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IE
     }
 
     function withdrawOrder(Order memory order, uint256 orderNonce) external nonReentrant {
-        address user = iLayerCCMLibrary.bytes64ToAddress(order.user);
-        // the order can only be withdrawn by the user themselves
-        if (user != msg.sender) revert Unauthorized();
-
+        address user = Strings.parseAddress(order.user);
         bytes32 orderId = getOrderId(order, orderNonce);
         if (order.deadline + timeBuffer > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
@@ -136,22 +134,23 @@ contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IE
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = Strings.parseAddress(input.tokenAddress);
             _transfer(input.tokenType, address(this), user, tokenAddress, input.tokenId, input.amount);
         }
 
-        emit OrderWithdrawn(orderId, msg.sender);
+        emit OrderWithdrawn(orderId, user);
     }
 
     /// @notice receive order settlement message from the executor contract
-    function _receiveMessageFromNonPeer(
-        address, /*dispatcher*/
-        iLayerMessage calldata message,
-        bytes calldata messageData,
-        bytes calldata /*extraData*/
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata payload,
+        address,  // Executor address as specified by the OApp.
+        bytes calldata
     ) internal override nonReentrant {
         (Order memory order, uint256 orderNonce, address filler, address fundingWallet) =
-            abi.decode(messageData, (Order, uint256, address, address));
+            abi.decode(payload, (Order, uint256, address, address));
 
         _checkOrderValidity(order, message);
 
@@ -164,7 +163,7 @@ contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IE
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = iLayerCCMLibrary.bytes64ToAddress(input.tokenAddress);
+            address tokenAddress = Strings.parseAddress(input.tokenAddress);
             _transfer(input.tokenType, address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
         }
 
@@ -172,7 +171,7 @@ contract OrderHub is Validator, Ownable2Step, ReentrancyGuard, OApp, IERC165, IE
     }
 
     function _checkOrderValidity(Order memory order, iLayerMessage calldata message) internal view {
-        address sender = iLayerCCMLibrary.bytes64ToAddress(message.sender);
+        address sender = Strings.parseAddress(message.sender);
         if (executors[message.sourceChainSelector] != sender) {
             revert InvalidSender();
         }
