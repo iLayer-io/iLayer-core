@@ -13,14 +13,12 @@ solc = "0.8.24"
 src = "src"
 test = "test"
 remappings = [
-  '@openzeppelin/=lib/openzeppelin-contracts/',
-  '@safecall=lib/ExcessivelySafeCall/src/',
-  '@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/',
-  '@layerzerolabs/test-devtools-evm-foundry/=lib/devtools/packages/test-devtools-evm-foundry/',
-  '@layerzerolabs/lz-evm-oapp-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/oapp/',
-  '@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/',
-  '@layerzerolabs/lz-evm-messagelib-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/messagelib/',
-  'solidity-bytes-utils/=lib/solidity-bytes-utils/'
+  'ds-test/=node_modules/@layerzerolabs/toolbox-foundry/lib/ds-test',
+  'forge-std/=node_modules/@layerzerolabs/toolbox-foundry/lib/forge-std',
+  '@layerzerolabs/=node_modules/@layerzerolabs/',
+  '@openzeppelin/=node_modules/@openzeppelin/',
+  '@nomad-xyz/excessively-safe-call/=node_modules/@nomad-xyz/excessively-safe-call',
+  'solidity-bytes-utils/=node_modules/solidity-bytes-utils/'
 ]
 
 [profile.ci]

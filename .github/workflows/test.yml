@@ -23,12 +23,13 @@ jobs:
           version: nightly
 
       - name: Run Forge build
-        run: |
-          forge --version
-          forge build --sizes
+        run: npm run build --sizes
         id: build
 
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
+      - name: Run lint
+        run: npm run lint
+        id: lint
+
+      - name: Run tests
+        run: npm run test
         id: test

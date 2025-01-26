@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { TestHelper } from "@layerzerolabs/lz-evm-oapp-v2/test/TestHelper.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {
+    IOAppOptionsType3, EnforcedOptionParam
+} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import {MessagingFee, MessagingReceipt} from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
+import {OFTMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
+import {OFTComposeMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import {Root} from "../src/Root.sol";
 import {Validator} from "../src/Validator.sol";
 import {OrderHub} from "../src/OrderHub.sol";
 import {OrderSpoke} from "../src/OrderSpoke.sol";
@@ -13,8 +22,13 @@ import {MockERC721} from "./mocks/MockERC721.sol";
 import {MockERC1155} from "./mocks/MockERC1155.sol";
 import {SmartContractUser} from "./mocks/SmartContractUser.sol";
 
-contract BaseTest is TestHelper {
+contract BaseTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
+
+    // chain eids
+    uint32 private aEid = 1;
+    uint32 private bEid = 2;
+    bytes[] public permits;
 
     // users
     uint256 public immutable user0_pk = uint256(keccak256("user0-private-key"));
@@ -33,17 +47,9 @@ contract BaseTest is TestHelper {
     MockERC1155 public inputERC1155Token;
     SmartContractUser public contractUser;
 
-    function setUp() public virtual override {
-        super.setUp();
-        setUpEndpoints(2, LibraryType.UltraLightNode);
-        hub = OrderHub(_deployOApp(type(OrderHub).creationCode, abi.encode(address(this))));
-        spoke = OrderSpoke(_deployOApp(type(OrderSpoke).creationCode, abi.encode(address(this))));
-
-        // Configure and wire the OFTs together
-        address[] memory ofts = new address[](2);
-        ofts[0] = address(aOFT);
-        ofts[1] = address(bOFT);
-        this.wireOApps(ofts);
+    constructor() {
+        permits = new bytes[](1);
+        permits[0] = "";
 
         inputToken = new MockERC20("input", "INPUT");
         inputERC721Token = new MockERC721("input", "INPUT");
@@ -54,68 +60,127 @@ contract BaseTest is TestHelper {
         deal(user0, 1 ether);
         deal(user1, 1 ether);
         deal(user2, 1 ether);
-
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
-        vm.label(address(spoke.executor()), "EXECUTOR");
+        vm.label(address(this), "THIS");
         vm.label(address(contractUser), "CONTRACT USER");
-        vm.label(address(hub), "HUB");
-        vm.label(address(spoke), "SPOKE");
         vm.label(address(inputToken), "INPUT TOKEN");
         vm.label(address(inputERC721Token), "INPUT ERC721 TOKEN");
         vm.label(address(inputERC1155Token), "INPUT ERC1155 TOKEN");
         vm.label(address(outputToken), "OUTPUT TOKEN");
-
-        orderhub.setMaxOrderDeadline(1 days);
     }
-}
 
-/*
+    function setUp() public virtual override {
+        super.setUp();
+        setUpEndpoints(2, LibraryType.UltraLightNode);
+        hub = OrderHub(_deployOApp(type(OrderHub).creationCode, abi.encode(address(endpoints[aEid]))));
+        spoke = OrderSpoke(_deployOApp(type(OrderSpoke).creationCode, abi.encode(address(endpoints[bEid]))));
+
+        address[] memory oapps = new address[](2);
+        oapps[0] = address(hub);
+        oapps[1] = address(spoke);
+        this.wireOApps(oapps);
+
+        vm.label(address(spoke.executor()), "EXECUTOR");
+        vm.label(address(hub), "HUB");
+        vm.label(address(spoke), "SPOKE");
+
+        hub.setMaxOrderDeadline(1 days);
+    }
+
+    function buildOrderRequest(Root.Order memory order, uint64 nonce)
+        public
+        view
+        returns (OrderHub.OrderRequest memory)
+    {
+        OrderHub.OrderRequest memory request =
+            OrderHub.OrderRequest({order: order, deadline: uint64(block.timestamp + 1 days), nonce: nonce});
+        return request;
+    }
+
     function buildOrder(
-        address filler,
-        uint256 inputAmount,
-        uint256 outputAmount,
         address user,
+        address filler,
         address fromToken,
+        uint256 inputAmount,
         address toToken,
+        uint256 outputAmount,
         uint256 primaryFillerDeadlineOffset,
         uint256 deadlineOffset,
         address callRecipient,
         bytes memory callData
-    ) public view returns (Validator.Order memory) {
+    ) public view returns (Root.Order memory) {
         // Construct input/output token arrays
-        Validator.Token[] memory inputs = new Validator.Token[](1);
-        inputs[0] = Validator.Token({
-            tokenType: Validator.Type.ERC20,
-            tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
-            tokenId: type(uint256).max,
+        Root.Token[] memory inputs = new Root.Token[](1);
+        inputs[0] = Root.Token({
+            tokenType: Root.Type.ERC20,
+            tokenAddress: Strings.toChecksumHexString(fromToken),
+            tokenId: 0,
             amount: inputAmount
         });
 
-        Validator.Token[] memory outputs = new Validator.Token[](1);
-        outputs[0] = Validator.Token({
-            tokenType: Validator.Type.ERC20,
-            tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
-            tokenId: type(uint256).max,
+        Root.Token[] memory outputs = new Root.Token[](1);
+        outputs[0] = Root.Token({
+            tokenType: Root.Type.ERC20,
+            tokenAddress: Strings.toChecksumHexString(toToken),
+            tokenId: 0,
             amount: outputAmount
         });
 
         // Build the order struct
-        return Validator.Order({
-            user: iLayerCCMLibrary.addressToBytes64(user),
-            filler: iLayerCCMLibrary.addressToBytes64(filler),
+        return Root.Order({
+            user: Strings.toChecksumHexString(user),
+            filler: Strings.toChecksumHexString(filler),
             inputs: inputs,
             outputs: outputs,
-            sourceChainSelector: block.chainid,
-            destinationChainSelector: block.chainid,
+            sourceChainEid: aEid,
+            destinationChainEid: bEid,
             sponsored: false,
-            primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
-            deadline: block.timestamp + deadlineOffset,
-            callRecipient: iLayerCCMLibrary.addressToBytes64(callRecipient),
+            primaryFillerDeadline: uint64(block.timestamp + primaryFillerDeadlineOffset),
+            deadline: uint64(block.timestamp + deadlineOffset),
+            callRecipient: Strings.toChecksumHexString(callRecipient),
             callData: callData
         });
     }
+
+    function buildSignature(Validator.Order memory order, uint256 user_pk) public view returns (bytes memory) {
+        // Hash the order
+        bytes32 structHash = hub.hashOrder(order);
+
+        // Compute the EIP-712 domain separator as the contract does
+        bytes32 domainSeparator = hub.DOMAIN_SEPARATOR();
+
+        // Create the EIP-712 typed data hash
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+
+        // Sign this EIP-712 digest using Foundry's vm.sign(...)
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(user_pk, digest);
+
+        // Pack (r, s, v) into a 65-byte signature
+        return abi.encodePacked(r, s, v);
+    }
+
+    function validateOrderWasFilled(address user, address filler, uint256 inputAmount, uint256 outputAmount)
+        public
+        view
+    {
+        // OrderHub is empty
+        assertEq(inputToken.balanceOf(address(hub)), 0, "OrderHub contract is not empty");
+        assertEq(outputToken.balanceOf(address(hub)), 0, "OrderHub contract is not empty");
+        // User has received the desired tokens
+        assertEq(inputToken.balanceOf(user), 0, "User still holds input tokens");
+        assertEq(outputToken.balanceOf(user), outputAmount, "User didn't receive output tokens");
+        // Filler has received their payment
+        assertEq(inputToken.balanceOf(filler), inputAmount, "Filler didn't receive input tokens");
+        assertEq(outputToken.balanceOf(filler), 0, "Filler still holds output tokens");
+        // Executor contract is empty
+        assertEq(inputToken.balanceOf(address(spoke)), 0, "OrderSpoke contract is not empty");
+        assertEq(outputToken.balanceOf(address(spoke)), 0, "OrderSpoke contract is not empty");
+    }
+}
+
+/*
 
     function buildERC721Order(
         address filler,
@@ -206,65 +271,4 @@ contract BaseTest is TestHelper {
             callData: callData
         });
     }
-
-    function buildSignature(Validator.Order memory order, uint256 user_pk) public view returns (bytes memory) {
-        // Hash the order
-        bytes32 structHash = orderhub.hashOrder(order);
-
-        // Compute the EIP-712 domain separator as the contract does
-        bytes32 domainSeparator = orderhub.DOMAIN_SEPARATOR();
-
-        // Create the EIP-712 typed data hash
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-
-        // Sign this EIP-712 digest using Foundry's vm.sign(...)
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(user_pk, digest);
-
-        // Pack (r, s, v) into a 65-byte signature
-        return abi.encodePacked(r, s, v);
-    }
-
-    function buildMessage(address sender, address receiver, bytes memory data)
-        public
-        view
-        returns (iLayerMessage memory)
-    {
-        return iLayerMessage({
-            blockNumber: 1,
-            sourceChainSelector: block.chainid,
-            blockConfirmations: 0,
-            sender: iLayerCCMLibrary.addressToBytes64(sender),
-            destinationChainSelector: block.chainid,
-            receiver: iLayerCCMLibrary.addressToBytes64(receiver),
-            hashedData: keccak256(data)
-        });
-    }
-
-    function buildOrderRequest(Validator.Order memory order, uint256 nonce)
-        public
-        view
-        returns (OrderHub.OrderRequest memory)
-    {
-        OrderHub.OrderRequest memory request =
-            OrderHub.OrderRequest({order: order, deadline: block.timestamp + 1 days, nonce: nonce});
-        return request;
-    }
-
-    function validateOrderWasFilled(address user, address filler, uint256 inputAmount, uint256 outputAmount)
-        public
-        view
-    {
-        // OrderHub is empty
-        assertEq(inputToken.balanceOf(address(orderhub)), 0, "OrderHub contract is not empty");
-        assertEq(outputToken.balanceOf(address(orderhub)), 0, "OrderHub contract is not empty");
-        // User has received the desired tokens
-        assertEq(inputToken.balanceOf(user), 0, "User still holds input tokens");
-        assertEq(outputToken.balanceOf(user), outputAmount, "User didn't receive output tokens");
-        // Filler has received their payment
-        assertEq(inputToken.balanceOf(filler), inputAmount, "Filler didn't receive input tokens");
-        assertEq(outputToken.balanceOf(filler), 0, "Filler still holds output tokens");
-        // Executor contract is empty
-        assertEq(inputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
-        assertEq(outputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
-    }
-    */
+*/

@@ -2,12 +2,11 @@
   "filter_paths": "(lib/|test/)",
   "exclude_informational": false,
   "solc_remaps": [
-    "ds-test/=lib/ds-test/src/",
-    "forge-std/=lib/forge-std/src/",
-    "@openzeppelin/=lib/openzeppelin-contracts/",
-    "@safecall=lib/ExcessivelySafeCall/src/",
-    "@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/",
-    "@layerzerolabs/test-devtools-evm-foundry/=lib/devtools/packages/test-devtools-evm-foundry/",
-    "@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/"
+    "ds-test/=node_modules/@layerzerolabs/toolbox-foundry/lib/ds-test",
+    "forge-std/=node_modules/@layerzerolabs/toolbox-foundry/lib/forge-std",
+    "@layerzerolabs/=node_modules/@layerzerolabs/",
+    "@openzeppelin/=node_modules/@openzeppelin/",
+    "@nomad-xyz/excessively-safe-call/=node_modules/@nomad-xyz/excessively-safe-call",
+    "solidity-bytes-utils/=node_modules/solidity-bytes-utils/"
   ]
 }

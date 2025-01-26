@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -25,12 +25,10 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
 
     mapping(bytes32 orderId => Status status) public orders;
     mapping(address user => mapping(uint64 nonce => bool used)) public requestNonces;
-    mapping(uint32 eid => address spoke) public spokes;
     uint64 public maxOrderDeadline;
     uint64 public timeBuffer;
     uint64 public nonce;
 
-    event SpokeUpdated(uint32 indexed chainEid, address indexed oldSpoke, address indexed newSpoke);
     event TimeBufferUpdated(uint64 oldTimeBufferVal, uint64 newTimeBufferVal);
     event MaxOrderDeadlineUpdated(uint64 oldDeadline, uint64 newDeadline);
     event OrderCreated(bytes32 indexed orderId, uint64 nonce, Order order, address indexed calller);
@@ -51,7 +49,6 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
     error OrderExpired();
     error OrderCannotBeWithdrawn();
     error OrderCannotBeFilled();
-    error UnsupportedChain();
     error Unauthorized();
     error InvalidSender();
     error InvalidUser();
@@ -61,11 +58,6 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
 
     constructor(address _router) Ownable(msg.sender) OApp(_router, msg.sender) {
         maxOrderDeadline = 1 days;
-    }
-
-    function setSpoke(uint32 eid, address spoke) external onlyOwner {
-        emit SpokeUpdated(eid, spokes[eid], spoke);
-        spokes[eid] = spoke;
     }
 
     function setTimeBuffer(uint64 newTimeBuffer) external onlyOwner {
@@ -141,7 +133,7 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
     function withdrawOrder(Order memory order, uint64 orderNonce) external nonReentrant {
         address user = Strings.parseAddress(order.user);
         bytes32 orderId = getOrderId(order, orderNonce);
-        if (order.deadline + timeBuffer > block.timestamp || orders[orderId] != Status.ACTIVE) {
+        if (user != msg.sender || order.deadline + timeBuffer > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
         }
 
@@ -243,7 +235,6 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         if (order.inputs.length != permits.length) revert InvalidOrderInputApprovals();
         if (order.deadline > block.timestamp + maxOrderDeadline) revert InvalidDeadline();
         if (!validateOrder(order, signature)) revert InvalidOrderSignature();
-        if (spokes[order.destinationChainEid] == address(0)) revert UnsupportedChain();
         if (order.primaryFillerDeadline > order.deadline) revert OrderDeadlinesMismatch();
         if (block.timestamp >= order.deadline) revert OrderExpired();
         if (block.timestamp >= order.primaryFillerDeadline) revert OrderPrimaryFillerExpired();

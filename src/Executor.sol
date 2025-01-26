@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {ExcessivelySafeCall} from "@safecall/ExcessivelySafeCall.sol";
+import {ExcessivelySafeCall} from "@nomad-xyz/excessively-safe-call/src/ExcessivelySafeCall.sol";
 
 /**
  * @title Executor contract

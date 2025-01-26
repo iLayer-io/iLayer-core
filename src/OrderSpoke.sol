@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -20,21 +20,14 @@ contract OrderSpoke is Root, ReentrancyGuard, OApp {
     uint16 public constant MAX_RETURNDATA_COPY_SIZE = 32;
     Executor public immutable executor;
     mapping(bytes32 => bool) public ordersProcessed;
-    mapping(uint32 eid => address hub) public hubs;
 
-    event HubUpdated(uint32 indexed eid, address indexed oldHub, address indexed newHub);
-    event orderProcessed(bytes32 indexed orderId, Order order);
+    event OrderProcessed(bytes32 indexed orderId, Order order);
 
     error OrderAlreadyProcessed();
     error ExternalCallFailed();
 
     constructor(address _router) Ownable(msg.sender) OApp(_router, msg.sender) {
         executor = new Executor();
-    }
-
-    function setHub(uint32 eid, address hub) external onlyOwner {
-        emit HubUpdated(eid, hubs[eid], hub);
-        hubs[eid] = hub;
     }
 
     function _lzReceive(Origin calldata, bytes32, bytes calldata payload, address, bytes calldata)
@@ -78,7 +71,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OApp {
         bytes memory data = abi.encode(order, orderNonce, fundingWalletStr);
         _lzSend(order.sourceChainEid, data, "", MessagingFee(msg.value, 0), payable(msg.sender));
 
-        emit orderProcessed(orderId, order);
+        emit OrderProcessed(orderId, order);
     }
 
     function _transferFunds(Order memory order, address from, address to) internal {

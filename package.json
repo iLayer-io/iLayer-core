@@ -1,0 +1,32 @@
+{
+  "name": "@ilayer/contracts-v1",
+  "version": "1.0.0",
+  "private": false,
+  "license": "BUSL-1.1",
+  "scripts": {
+    "clean": "rm -rf artifacts cache out",
+    "compile": "forge build",
+    "lint": "solhint 'src/**/*.sol'",
+    "test": "forge test"
+  },
+  "devDependencies": {
+    "@layerzerolabs/lz-definitions": "^3.0.57",
+    "@layerzerolabs/lz-evm-messagelib-v2": "^3.0.57",
+    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.57",
+    "@layerzerolabs/lz-evm-protocol-v2": "^3.0.57",
+    "@layerzerolabs/lz-evm-v1-0.7": "^3.0.57",
+    "@layerzerolabs/lz-v2-utilities": "^3.0.57",
+    "@layerzerolabs/oapp-evm": "^0.3.0",
+    "@layerzerolabs/solhint-config": "^3.0.57",
+    "@layerzerolabs/test-devtools-evm-foundry": "^6.0.0",
+    "@layerzerolabs/toolbox-foundry": "^0.1.10",
+    "@nomad-xyz/excessively-safe-call": "github:nomad-xyz/ExcessivelySafeCall",
+    "@openzeppelin/contracts": "^5.2.0",
+    "@openzeppelin/contracts-upgradeable": "^5.2.0",
+    "solhint": "^5.0.5",
+    "solidity-bytes-utils": "^0.8.2"
+  },
+  "engines": {
+    "node": ">=18.16.0"
+  }
+}
