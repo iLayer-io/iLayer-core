@@ -15,12 +15,11 @@ contract SmartContractUser {
         OrderHub orderhub,
         Validator.Order memory order,
         bytes[] memory permits,
-        bytes memory signature,
-        uint16 confirmations
+        bytes memory signature
     ) external {
         OrderHub.OrderRequest memory request =
             OrderHub.OrderRequest({order: order, deadline: block.timestamp + 1 days, nonce: 1});
-        orderhub.createOrder(request, permits, signature, confirmations);
+        orderhub.createOrder(request, permits, signature);
     }
 
     function isValidSignature(bytes32, bytes memory) external view returns (bytes4 magicValue) {

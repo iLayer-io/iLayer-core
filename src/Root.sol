@@ -33,8 +33,8 @@ contract Root {
         string filler;
         Token[] inputs;
         Token[] outputs;
-        uint256 sourceChainSelector;
-        uint256 destinationChainSelector;
+        uint32 sourceChainEid;
+        uint32 destinationChainEid;
         bool sponsored;
         uint256 primaryFillerDeadline;
         uint256 deadline;
@@ -44,9 +44,9 @@ contract Root {
 
     error UnsupportedTransfer();
 
-function addressToBytes32(address _addr) public pure returns (bytes32) {
-    return bytes32(uint256(uint160(_addr)));
-}
+    function addressToBytes32(address _addr) public pure returns (bytes32) {
+        return bytes32(uint256(uint160(_addr)));
+    }
 
     function getOrderId(Order memory order, uint256 nonce) public pure returns (bytes32) {
         return keccak256(abi.encode(nonce, order));

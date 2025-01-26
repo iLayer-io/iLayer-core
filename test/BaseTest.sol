@@ -3,20 +3,22 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
+import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import {
+    IOAppOptionsType3, EnforcedOptionParam
+} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
+import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {Validator} from "../src/Validator.sol";
 import {OrderHub} from "../src/OrderHub.sol";
-import {Executor} from "../src/Executor.sol";
+import {OrderSpoke} from "../src/OrderSpoke.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockERC721} from "./mocks/MockERC721.sol";
 import {MockERC1155} from "./mocks/MockERC1155.sol";
-import {MockRouter} from "./mocks/MockRouter.sol";
-import {MockiLayerVerifier} from "./mocks/MockiLayerVerifier.sol";
-import {MockiLayerFees} from "./mocks/MockiLayerFees.sol";
 import {SmartContractUser} from "./mocks/SmartContractUser.sol";
 
-contract BaseTest is Test {
+contract BaseTest is TestHelperOz5 {
+    using OptionsBuilder for bytes;
+
     // users
     uint256 public immutable user0_pk = uint256(keccak256("user0-private-key"));
     address public immutable user0 = vm.addr(user0_pk);
@@ -25,35 +27,30 @@ contract BaseTest is Test {
     uint256 public immutable user2_pk = uint256(keccak256("user2-private-key"));
     address public immutable user2 = vm.addr(user2_pk);
 
-    // iLayer
-    MockiLayerVerifier public immutable verifier;
-    MockiLayerFees public immutable iLayerFees;
-    MockRouter public immutable router;
-    address public constant iLayerL1Address = address(0x45717569746f);
-    bytes public constant msgProof = abi.encode(1);
-    bytes[] public permits = new bytes[](1);
-
     // contracts
-    OrderHub public immutable orderhub;
-    Executor public immutable executor;
-    MockERC20 public immutable inputToken;
-    MockERC20 public immutable outputToken;
-    MockERC721 public immutable inputERC721Token;
-    MockERC1155 public immutable inputERC1155Token;
-    SmartContractUser public immutable contractUser;
+    OrderHub public hub;
+    OrderSpoke public spoke;
+    MockERC20 public inputToken;
+    MockERC20 public outputToken;
+    MockERC721 public inputERC721Token;
+    MockERC1155 public inputERC1155Token;
+    SmartContractUser public contractUser;
 
-    constructor() {
-        verifier = new MockiLayerVerifier();
-        iLayerFees = new MockiLayerFees();
-        router = new MockRouter();
-        /* iLayerRouter(
-            1, address(verifier), address(iLayerFees), 0, iLayerCCMLibrary.addressToBytes64(iLayerL1Address)
-        );*/
-        orderhub = new OrderHub(address(router));
-        executor = new Executor(address(router));
+    function setUp() public virtual override {
+        super.setUp();
+        setUpEndpoints(2, LibraryType.UltraLightNode);
+        hub = OrderHub(_deployOApp(type(OrderHub).creationCode, abi.encode(address(this))));
+        spoke = OrderSpoke(_deployOApp(type(OrderSpoke).creationCode, abi.encode(address(this))));
+
+        // Configure and wire the OFTs together
+        address[] memory ofts = new address[](2);
+        ofts[0] = address(aOFT);
+        ofts[1] = address(bOFT);
+        this.wireOApps(ofts);
+
         inputToken = new MockERC20("input", "INPUT");
         inputERC721Token = new MockERC721("input", "INPUT");
-        inputERC1155Token = new MockERC1155("https://ilayer.io");
+        inputERC1155Token = new MockERC1155("input");
         outputToken = new MockERC20("output", "OUTPUT");
         contractUser = new SmartContractUser();
 
@@ -64,21 +61,19 @@ contract BaseTest is Test {
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
-        vm.label(address(executor.caller()), "CALLER");
-        vm.label(address(contractUser), "CONTRACT_USER");
-        vm.label(address(orderhub), "ORDER HUB");
-        vm.label(address(executor), "EXECUTOR");
+        vm.label(address(spoke.executor()), "EXECUTOR");
+        vm.label(address(contractUser), "CONTRACT USER");
+        vm.label(address(hub), "HUB");
+        vm.label(address(spoke), "SPOKE");
         vm.label(address(inputToken), "INPUT TOKEN");
         vm.label(address(inputERC721Token), "INPUT ERC721 TOKEN");
         vm.label(address(inputERC1155Token), "INPUT ERC1155 TOKEN");
         vm.label(address(outputToken), "OUTPUT TOKEN");
-        vm.label(address(router), "ROUTER");
 
-        orderhub.setExecutor(block.chainid, address(executor));
-        executor.setOrderHub(block.chainid, address(orderhub));
         orderhub.setMaxOrderDeadline(1 days);
     }
 
+    /*
     function buildOrder(
         address filler,
         uint256 inputAmount,
@@ -274,4 +269,5 @@ contract BaseTest is Test {
         assertEq(inputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
         assertEq(outputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
     }
+    */
 }

@@ -3,12 +3,9 @@ pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {iLayerRouter, IiLayerRouter} from "@ilayer/iLayerRouter.sol";
 import {Validator} from "../src/Validator.sol";
 import {OrderHub} from "../src/OrderHub.sol";
 import {Executor} from "../src/Executor.sol";
-import {MockRouter} from "../test/mocks/MockRouter.sol";
 
 contract BaseScript is Script {
     bytes public constant msgProof = abi.encode(1);

@@ -167,11 +167,11 @@ library Strings {
      *
      * NOTE: This function will revert if the result does not fit in a `uint256`.
      */
-    function tryParseUint(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) internal pure returns (bool success, uint256 value) {
+    function tryParseUint(string memory input, uint256 begin, uint256 end)
+        internal
+        pure
+        returns (bool success, uint256 value)
+    {
         if (end > bytes(input).length || begin > end) return (false, 0);
         return _tryParseUintUncheckedBounds(input, begin, end);
     }
@@ -180,11 +180,11 @@ library Strings {
      * @dev Implementation of {tryParseUint} that does not check bounds. Caller should make sure that
      * `begin <= end <= input.length`. Other inputs would result in undefined behavior.
      */
-    function _tryParseUintUncheckedBounds(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) private pure returns (bool success, uint256 value) {
+    function _tryParseUintUncheckedBounds(string memory input, uint256 begin, uint256 end)
+        private
+        pure
+        returns (bool success, uint256 value)
+    {
         bytes memory buffer = bytes(input);
 
         uint256 result = 0;
@@ -240,11 +240,11 @@ library Strings {
      *
      * NOTE: This function will revert if the absolute value of the result does not fit in a `uint256`.
      */
-    function tryParseInt(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) internal pure returns (bool success, int256 value) {
+    function tryParseInt(string memory input, uint256 begin, uint256 end)
+        internal
+        pure
+        returns (bool success, int256 value)
+    {
         if (end > bytes(input).length || begin > end) return (false, 0);
         return _tryParseIntUncheckedBounds(input, begin, end);
     }
@@ -253,11 +253,11 @@ library Strings {
      * @dev Implementation of {tryParseInt} that does not check bounds. Caller should make sure that
      * `begin <= end <= input.length`. Other inputs would result in undefined behavior.
      */
-    function _tryParseIntUncheckedBounds(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) private pure returns (bool success, int256 value) {
+    function _tryParseIntUncheckedBounds(string memory input, uint256 begin, uint256 end)
+        private
+        pure
+        returns (bool success, int256 value)
+    {
         bytes memory buffer = bytes(input);
 
         // Check presence of a negative sign.
@@ -272,7 +272,9 @@ library Strings {
             return (true, negativeSign ? -int256(absValue) : int256(absValue));
         } else if (absSuccess && negativeSign && absValue == ABS_MIN_INT256) {
             return (true, type(int256).min);
-        } else return (false, 0);
+        } else {
+            return (false, 0);
+        }
     }
 
     /**
@@ -315,11 +317,11 @@ library Strings {
      *
      * NOTE: This function will revert if the result does not fit in a `uint256`.
      */
-    function tryParseHexUint(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) internal pure returns (bool success, uint256 value) {
+    function tryParseHexUint(string memory input, uint256 begin, uint256 end)
+        internal
+        pure
+        returns (bool success, uint256 value)
+    {
         if (end > bytes(input).length || begin > end) return (false, 0);
         return _tryParseHexUintUncheckedBounds(input, begin, end);
     }
@@ -328,11 +330,11 @@ library Strings {
      * @dev Implementation of {tryParseHexUint} that does not check bounds. Caller should make sure that
      * `begin <= end <= input.length`. Other inputs would result in undefined behavior.
      */
-    function _tryParseHexUintUncheckedBounds(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) private pure returns (bool success, uint256 value) {
+    function _tryParseHexUintUncheckedBounds(string memory input, uint256 begin, uint256 end)
+        private
+        pure
+        returns (bool success, uint256 value)
+    {
         bytes memory buffer = bytes(input);
 
         // skip 0x prefix if present
@@ -388,11 +390,11 @@ library Strings {
      * @dev Variant of {parseAddress-string-uint256-uint256} that returns false if the parsing fails because input is not a properly
      * formatted address. See {parseAddress} requirements.
      */
-    function tryParseAddress(
-        string memory input,
-        uint256 begin,
-        uint256 end
-    ) internal pure returns (bool success, address value) {
+    function tryParseAddress(string memory input, uint256 begin, uint256 end)
+        internal
+        pure
+        returns (bool success, address value)
+    {
         if (end > bytes(input).length || begin > end) return (false, address(0));
 
         bool hasPrefix = (end > begin + 1) && bytes2(_unsafeReadBytesOffset(bytes(input), begin)) == bytes2("0x"); // don't do out-of-bound (possibly unsafe) read if sub-string is empty
