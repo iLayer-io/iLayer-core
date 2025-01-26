@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {Strings} from "./libraries/Strings.sol";
 import {Root} from "./Root.sol";
 import {Executor} from "./Executor.sol";
 
@@ -20,9 +20,9 @@ contract OrderSpoke is Root, ReentrancyGuard, OApp {
     uint16 public constant MAX_RETURNDATA_COPY_SIZE = 32;
     Executor public immutable executor;
     mapping(bytes32 => bool) public ordersProcessed;
-    mapping(uint256 chainid => address hub) public hubs;
+    mapping(uint32 eid => address hub) public hubs;
 
-    event HubUpdated(uint256 indexed chainid, address indexed oldHub, address indexed newHub);
+    event HubUpdated(uint32 indexed eid, address indexed oldHub, address indexed newHub);
     event orderProcessed(bytes32 indexed orderId, Order order);
 
     error OrderAlreadyProcessed();
@@ -32,9 +32,9 @@ contract OrderSpoke is Root, ReentrancyGuard, OApp {
         executor = new Executor();
     }
 
-    function setHub(uint256 chain, address hub) external onlyOwner {
-        emit HubUpdated(chain, hubs[chain], hub);
-        hubs[chain] = hub;
+    function setHub(uint32 eid, address hub) external onlyOwner {
+        emit HubUpdated(eid, hubs[eid], hub);
+        hubs[eid] = hub;
     }
 
     function _lzReceive(Origin calldata, bytes32, bytes calldata payload, address, bytes calldata)
@@ -42,8 +42,8 @@ contract OrderSpoke is Root, ReentrancyGuard, OApp {
         override
         nonReentrant
     {
-        (Order memory order, uint256 orderNonce, string memory fundingWalletStr, uint256 maxGas) =
-            abi.decode(payload, (Order, uint256, string, uint256));
+        (Order memory order, uint64 orderNonce, string memory fundingWalletStr, uint64 maxGas) =
+            abi.decode(payload, (Order, uint64, string, uint64));
 
         /*
         address orderhub = orderhubs[order.sourceChainEid];

@@ -69,8 +69,9 @@ contract BaseTest is TestHelper {
 
         orderhub.setMaxOrderDeadline(1 days);
     }
+}
 
-    /*
+/*
     function buildOrder(
         address filler,
         uint256 inputAmount,
@@ -267,4 +268,3 @@ contract BaseTest is TestHelper {
         assertEq(outputToken.balanceOf(address(executor)), 0, "Executor contract is not empty");
     }
     */
-}

@@ -18,7 +18,7 @@ contract SmartContractUser {
         bytes memory signature
     ) external {
         OrderHub.OrderRequest memory request =
-            OrderHub.OrderRequest({order: order, deadline: block.timestamp + 1 days, nonce: 1});
+            OrderHub.OrderRequest({order: order, deadline: uint64(block.timestamp + 1 days), nonce: 1});
         orderhub.createOrder(request, permits, signature);
     }
 

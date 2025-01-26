@@ -16,6 +16,7 @@ contract Root {
     }
 
     enum Type {
+        NULL,
         ERC20,
         ERC721,
         ERC1155
@@ -36,8 +37,8 @@ contract Root {
         uint32 sourceChainEid;
         uint32 destinationChainEid;
         bool sponsored;
-        uint256 primaryFillerDeadline;
-        uint256 deadline;
+        uint64 primaryFillerDeadline;
+        uint64 deadline;
         string callRecipient;
         bytes callData;
     }
