@@ -3,10 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {
-    IOAppOptionsType3, EnforcedOptionParam
-} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
+import { TestHelper } from "@layerzerolabs/lz-evm-oapp-v2/test/TestHelper.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {Validator} from "../src/Validator.sol";
 import {OrderHub} from "../src/OrderHub.sol";
@@ -16,7 +13,7 @@ import {MockERC721} from "./mocks/MockERC721.sol";
 import {MockERC1155} from "./mocks/MockERC1155.sol";
 import {SmartContractUser} from "./mocks/SmartContractUser.sol";
 
-contract BaseTest is TestHelperOz5 {
+contract BaseTest is TestHelper {
     using OptionsBuilder for bytes;
 
     // users

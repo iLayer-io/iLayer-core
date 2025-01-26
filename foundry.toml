@@ -17,8 +17,10 @@ remappings = [
   '@safecall=lib/ExcessivelySafeCall/src/',
   '@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/',
   '@layerzerolabs/test-devtools-evm-foundry/=lib/devtools/packages/test-devtools-evm-foundry/',
+  '@layerzerolabs/lz-evm-oapp-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/oapp/',
   '@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/',
   '@layerzerolabs/lz-evm-messagelib-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/messagelib/',
+  'solidity-bytes-utils/=lib/solidity-bytes-utils/'
 ]
 
 [profile.ci]

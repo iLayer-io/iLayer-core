@@ -158,6 +158,16 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         emit OrderWithdrawn(orderId, user);
     }
 
+    function estimateFee(
+   uint32 _dstEid,
+   string memory _message,
+   bytes calldata _options
+) public view returns (uint256 nativeFee, uint256 lzTokenFee) {
+   bytes memory _payload = abi.encode(_message);
+   MessagingFee memory fee = _quote(_dstEid, _payload, _options, false);
+   return (fee.nativeFee, fee.lzTokenFee);
+}
+
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
         external
         override
