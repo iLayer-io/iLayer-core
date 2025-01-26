@@ -16,7 +16,9 @@ remappings = [
   '@openzeppelin/=lib/openzeppelin-contracts/',
   '@safecall=lib/ExcessivelySafeCall/src/',
   '@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/',
-  '@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/'
+  '@layerzerolabs/test-devtools-evm-foundry/=lib/devtools/packages/test-devtools-evm-foundry/',
+  '@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/',
+  '@layerzerolabs/lz-evm-messagelib-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/messagelib/',
 ]
 
 [profile.ci]
