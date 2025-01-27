@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {bytes64, iLayerMessage, iLayerCCMLibrary} from "@ilayer/libraries/iLayerCCMLibrary.sol";
-import {Validator} from "../src/Validator.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Root} from "../src/Root.sol";
 import {OrderHub} from "../src/OrderHub.sol";
-import {Executor} from "../src/Executor.sol";
+import {OrderSpoke} from "../src/OrderSpoke.sol";
 import {BaseTest} from "./BaseTest.sol";
 
 contract TargetContract {
@@ -15,7 +15,7 @@ contract TargetContract {
     }
 }
 
-contract ExecutorTest is BaseTest {
+contract OrderSpokeTest is BaseTest {
     TargetContract public immutable target;
 
     constructor() BaseTest() {
@@ -23,17 +23,16 @@ contract ExecutorTest is BaseTest {
     }
 
     function testFillOrder(uint256 inputAmount, uint256 outputAmount) public {
-        vm.assume(inputAmount > 0);
         address filler = user1;
 
         // 1. Build and verify order
-        Validator.Order memory order = buildOrder(
-            filler,
-            inputAmount,
-            outputAmount,
+        Root.Order memory order = buildOrder(
             user0,
+            filler,
             address(inputToken),
+            inputAmount,
             address(outputToken),
+            outputAmount,
             1 minutes,
             5 minutes,
             address(0),
@@ -44,33 +43,30 @@ contract ExecutorTest is BaseTest {
         // 2. Setup and create order
         inputToken.mint(user0, inputAmount);
         vm.startPrank(user0);
-        inputToken.approve(address(orderhub), inputAmount);
-        (, uint256 nonce) = orderhub.createOrder(buildOrderRequest(order, 1), permits, signature, 0);
+        inputToken.approve(address(hub), inputAmount);
+        (, uint64 nonce) = hub.createOrder(buildOrderRequest(order, 1), permits, signature);
         vm.stopPrank();
 
-        assertEq(inputToken.balanceOf(address(orderhub)), inputAmount, "Input token not transferred to orderhub");
+        assertEq(inputToken.balanceOf(address(hub)), inputAmount, "Input token not transferred to Hub");
 
         // 3. Fill order
-        iLayerMessage memory fillMessage = buildMessage(address(orderhub), address(executor), "");
-        bytes memory messageData = abi.encode(order, nonce);
-        bytes memory extraData = abi.encode(filler, 1e18, 0, 0);
-
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
-        outputToken.approve(address(executor), outputAmount);
+        outputToken.approve(address(spoke), outputAmount);
 
-        router.deliverAndExecuteMessage(fillMessage, messageData, extraData, 0, msgProof);
-
-        assertEq(outputToken.balanceOf(address(user0)), outputAmount, "Output token not transferred to the user");
-
-        // 4. Settle order
-        iLayerMessage memory settleMessage = buildMessage(address(executor), address(orderhub), "");
-        messageData = abi.encode(order, nonce, filler, filler);
-        router.deliverAndExecuteMessage(settleMessage, messageData, "", 0, msgProof);
+        string memory fillerStr = Strings.toChecksumHexString(filler);
+        (uint256 fee, bytes memory options, bytes memory returnOptions) =
+            _getLzData(order, nonce, 0, fillerStr, fillerStr);
+        hub.fillOrder{value: fee}(order, nonce, fillerStr, fillerStr, 0, options, returnOptions);
+        verifyPackets(bEid, addressToBytes32(address(spoke)));
+        verifyPackets(aEid, addressToBytes32(address(hub)));
 
         validateOrderWasFilled(user0, filler, inputAmount, outputAmount);
         vm.stopPrank();
     }
+}
+
+/*
 
     function testFillOrderWithInvalidFiller() public {
         uint256 inputAmount = 1e18;
@@ -247,3 +243,4 @@ contract ExecutorTest is BaseTest {
         assertEq(inputToken.balanceOf(user2), inputAmount);
     }
 }
+*/

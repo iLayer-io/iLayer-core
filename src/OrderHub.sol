@@ -13,7 +13,7 @@ import {Validator} from "./Validator.sol";
 
 /**
  * @title OrderHub contract
- * @dev Contract that stores user orders and input tokens
+ * @dev Contract that stores user orders and input tokens and sends the fill message
  * @custom:security-contact security@ilayer.io
  */
 contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver, IERC1155Receiver {
@@ -108,11 +108,15 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         return (orderId, orderNonce);
     }
 
-    function fillOrder(Order memory order, uint64 orderNonce, string memory fundingWallet, uint64 maxGas)
-        external
-        payable
-        returns (MessagingReceipt memory)
-    {
+    function fillOrder(
+        Order memory order,
+        uint64 orderNonce,
+        string memory originFundingWallet,
+        string memory destFundingWallet,
+        uint64 maxGas,
+        bytes calldata options,
+        bytes calldata returnOptions
+    ) external payable returns (MessagingReceipt memory) {
         bytes32 orderId = getOrderId(order, orderNonce);
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
 
@@ -126,8 +130,9 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
 
         emit OrderFillInitiated(orderId, msg.sender);
 
-        bytes memory payload = abi.encode(order, orderNonce, fundingWallet, maxGas);
-        return _lzSend(order.destinationChainEid, payload, "", MessagingFee(msg.value, 0), payable(msg.sender));
+        bytes memory payload =
+            abi.encode(order, orderNonce, maxGas, originFundingWallet, destFundingWallet, returnOptions);
+        return _lzSend(order.destinationChainEid, payload, options, MessagingFee(msg.value, 0), payable(msg.sender));
     }
 
     function withdrawOrder(Order memory order, uint64 orderNonce) external nonReentrant {
@@ -150,14 +155,9 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         emit OrderWithdrawn(orderId, user);
     }
 
-    function estimateFee(uint32 _dstEid, string memory _message, bytes calldata _options)
-        public
-        view
-        returns (uint256 nativeFee, uint256 lzTokenFee)
-    {
-        bytes memory _payload = abi.encode(_message);
-        MessagingFee memory fee = _quote(_dstEid, _payload, _options, false);
-        return (fee.nativeFee, fee.lzTokenFee);
+    function estimateFee(uint32 dstEid, bytes memory payload, bytes calldata options) public view returns (uint256) {
+        MessagingFee memory fee = _quote(dstEid, payload, options, false);
+        return fee.nativeFee;
     }
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
@@ -203,18 +203,6 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         (Order memory order, uint64 orderNonce, string memory fundingWalletStr) =
             abi.decode(payload, (Order, uint64, string));
 
-        /**
-         * address sender = Strings.parseAddress(message.sender);
-         *     if (executors[message.sourceChainSelector] != sender) {
-         *         revert InvalidSender();
-         *     }
-         *
-         *     if (
-         *         order.sourceChainSelector != message.destinationChainSelector
-         *             || order.destinationChainSelector != message.sourceChainSelector
-         *             || message.destinationChainSelector != block.chainid
-         *     ) revert UnprocessableOrder();
-         */
         bytes32 orderId = getOrderId(order, orderNonce);
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
         orders[orderId] = Status.FILLED;
@@ -241,7 +229,6 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
     }
 
     function _applyPermits(bytes memory permit, address user, address token) internal {
-        // Decode the permit signature and call permit on the token
         (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(permit, (uint256, uint256, uint8, bytes32, bytes32));
 

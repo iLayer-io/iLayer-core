@@ -11,6 +11,7 @@ contract OrderHubTest is BaseTest {
 
     function testHubSetup() external {
         assertEq(hub.owner(), address(this));
+        assertEq(address(hub.endpoint()), address(endpoints[aEid]));
 
         /// TODO add l0 base config tests
     }

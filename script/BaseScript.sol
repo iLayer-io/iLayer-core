@@ -19,10 +19,10 @@ contract BaseScript is Script {
     uint256 inputAmount = vm.envUint("INPUT_AMOUNT");
     address toToken = vm.envAddress("TO_TOKEN_ADDRESS");
     uint256 outputAmount = vm.envUint("OUTPUT_AMOUNT");
-    uint256 fillerDeadlineOffset = vm.envUint("FILLER_DEADLINE_OFFSET");
-    uint256 mainDeadlineOffset = vm.envUint("MAIN_DEADLINE_OFFSET");
-    uint256 sourceEid = vm.envUint("SOURCE_EID");
-    uint256 destEid = vm.envUint("DEST_EID");
+    uint64 fillerDeadlineOffset = uint64(vm.envUint("FILLER_DEADLINE_OFFSET"));
+    uint64 mainDeadlineOffset = uint64(vm.envUint("MAIN_DEADLINE_OFFSET"));
+    uint32 sourceEid = uint32(vm.envUint("SOURCE_EID"));
+    uint32 destEid = uint32(vm.envUint("DEST_EID"));
 
     modifier broadcastTx(uint256 key) {
         vm.startBroadcast(key);

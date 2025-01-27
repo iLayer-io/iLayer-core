@@ -26,8 +26,8 @@ contract BaseTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
 
     // chain eids
-    uint32 private aEid = 1;
-    uint32 private bEid = 2;
+    uint32 public aEid = 1;
+    uint32 public bEid = 2;
     bytes[] public permits;
 
     // users
@@ -60,6 +60,7 @@ contract BaseTest is TestHelperOz5 {
         deal(user0, 1 ether);
         deal(user1, 1 ether);
         deal(user2, 1 ether);
+
         vm.label(user0, "USER0");
         vm.label(user1, "USER1");
         vm.label(user2, "USER2");
@@ -73,7 +74,9 @@ contract BaseTest is TestHelperOz5 {
 
     function setUp() public virtual override {
         super.setUp();
+
         setUpEndpoints(2, LibraryType.UltraLightNode);
+
         hub = OrderHub(_deployOApp(type(OrderHub).creationCode, abi.encode(address(endpoints[aEid]))));
         spoke = OrderSpoke(_deployOApp(type(OrderSpoke).creationCode, abi.encode(address(endpoints[bEid]))));
 
@@ -82,11 +85,33 @@ contract BaseTest is TestHelperOz5 {
         oapps[1] = address(spoke);
         this.wireOApps(oapps);
 
-        vm.label(address(spoke.executor()), "EXECUTOR");
         vm.label(address(hub), "HUB");
         vm.label(address(spoke), "SPOKE");
+        vm.label(address(spoke.executor()), "EXECUTOR");
 
         hub.setMaxOrderDeadline(1 days);
+    }
+
+    function _getLzData(
+        Root.Order memory order,
+        uint64 orderNonce,
+        uint64 maxGas,
+        string memory originFundingWallet,
+        string memory destFundingWallet
+    ) internal view returns (uint256, bytes memory, bytes memory) {
+        // Settle
+        bytes memory returnOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // B -> A
+        bytes memory payloadSettle = abi.encode(order, orderNonce, originFundingWallet);
+        uint256 settleFee = spoke.estimateFee(aEid, payloadSettle, returnOptions);
+
+        // Fill
+        bytes memory options =
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(2 * 1e8 + maxGas, uint128(settleFee)); // A -> B
+        bytes memory payloadFill =
+            abi.encode(order, orderNonce, maxGas, originFundingWallet, destFundingWallet, returnOptions);
+        uint256 fillFee = hub.estimateFee(bEid, payloadFill, options);
+
+        return (fillFee, options, returnOptions);
     }
 
     function buildOrderRequest(Root.Order memory order, uint64 nonce)
