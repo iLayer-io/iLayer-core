@@ -24,14 +24,14 @@ contract Root {
 
     struct Token {
         Type tokenType;
-        string tokenAddress;
+        bytes32 tokenAddress;
         uint256 tokenId;
         uint256 amount;
     }
 
     struct Order {
-        string user;
-        string filler; // excluded from user signing
+        bytes32 user;
+        bytes32 filler; // excluded from user signing
         Token[] inputs;
         Token[] outputs;
         uint32 sourceChainEid;
@@ -39,15 +39,11 @@ contract Root {
         bool sponsored;
         uint64 primaryFillerDeadline; // excluded from user signing
         uint64 deadline;
-        string callRecipient;
+        bytes32 callRecipient;
         bytes callData;
     }
 
     error UnsupportedTransfer();
-
-    function addressToBytes32(address _addr) public pure returns (bytes32) {
-        return bytes32(uint256(uint160(_addr)));
-    }
 
     function getOrderId(Order memory order, uint256 nonce) public pure returns (bytes32) {
         return keccak256(abi.encode(nonce, order));

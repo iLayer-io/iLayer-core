@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import {OApp, Origin, MessagingFee, MessagingReceipt} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {PermitHelper} from "./libraries/PermitHelper.sol";
+import {BytesUtils} from "./libraries/BytesUtils.sol";
 import {Validator} from "./Validator.sol";
 
 /**
@@ -33,8 +33,7 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
     event MaxOrderDeadlineUpdated(uint64 oldDeadline, uint64 newDeadline);
     event OrderCreated(bytes32 indexed orderId, uint64 nonce, Order order, address indexed calller);
     event OrderWithdrawn(bytes32 indexed orderId, address indexed caller);
-    event OrderFillInitiated(bytes32 indexed orderId, address indexed caller);
-    event OrderFilled(bytes32 indexed orderId);
+    event OrderFilled(bytes32 indexed orderId, Order indexed order, MessagingReceipt receipt);
     event ERC721Received(address operator, address from, uint256 tokenId, bytes data);
     event ERC1155Received(address operator, address from, uint256 id, uint256 value, bytes data);
     event ERC1155BatchReceived(address operator, address from, uint256[] ids, uint256[] values, bytes data);
@@ -46,15 +45,14 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
     error InvalidDeadline();
     error OrderDeadlinesMismatch();
     error OrderPrimaryFillerExpired();
-    error OrderExpired();
     error OrderCannotBeWithdrawn();
     error OrderCannotBeFilled();
+    error OrderExpired();
     error Unauthorized();
     error InvalidSender();
     error InvalidUser();
     error InvalidSourceChain();
     error UnprocessableOrder();
-    error RestrictedToPrimaryFiller();
 
     constructor(address _router) Ownable(msg.sender) OApp(_router, msg.sender) {
         maxOrderDeadline = 1 days;
@@ -78,7 +76,7 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         returns (bytes32, uint64)
     {
         Order memory order = request.order;
-        address user = Strings.parseAddress(order.user);
+        address user = BytesUtils.bytes32ToAddress(order.user);
 
         // validate order request
         if (requestNonces[user][request.nonce]) revert RequestNonceReused();
@@ -95,7 +93,7 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = Strings.parseAddress(input.tokenAddress);
+            address tokenAddress = BytesUtils.bytes32ToAddress(input.tokenAddress);
             if (permits[i].length > 0) {
                 _applyPermits(permits[i], user, tokenAddress);
             }
@@ -108,35 +106,8 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         return (orderId, orderNonce);
     }
 
-    function fillOrder(
-        Order memory order,
-        uint64 orderNonce,
-        string memory originFundingWallet,
-        string memory destFundingWallet,
-        uint64 maxGas,
-        bytes calldata options,
-        bytes calldata returnOptions
-    ) external payable returns (MessagingReceipt memory) {
-        bytes32 orderId = getOrderId(order, orderNonce);
-        if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
-
-        uint64 currentTime = uint64(block.timestamp);
-        if (currentTime > order.deadline) revert OrderExpired();
-
-        address filler = Strings.parseAddress(order.filler);
-        if (filler != address(0) && currentTime <= order.primaryFillerDeadline && filler != msg.sender) {
-            revert RestrictedToPrimaryFiller();
-        }
-
-        emit OrderFillInitiated(orderId, msg.sender);
-
-        bytes memory payload =
-            abi.encode(order, orderNonce, maxGas, originFundingWallet, destFundingWallet, returnOptions);
-        return _lzSend(order.destinationChainEid, payload, options, MessagingFee(msg.value, 0), payable(msg.sender));
-    }
-
     function withdrawOrder(Order memory order, uint64 orderNonce) external nonReentrant {
-        address user = Strings.parseAddress(order.user);
+        address user = BytesUtils.bytes32ToAddress(order.user);
         bytes32 orderId = getOrderId(order, orderNonce);
         if (user != msg.sender || order.deadline + timeBuffer > block.timestamp || orders[orderId] != Status.ACTIVE) {
             revert OrderCannotBeWithdrawn();
@@ -148,7 +119,7 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = Strings.parseAddress(input.tokenAddress);
+            address tokenAddress = BytesUtils.bytes32ToAddress(input.tokenAddress);
             _transfer(input.tokenType, address(this), user, tokenAddress, input.tokenId, input.amount);
         }
 
@@ -194,29 +165,42 @@ contract OrderHub is Validator, ReentrancyGuard, OApp, IERC165, IERC721Receiver,
             || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
-    /// @notice receive order settlement message from the executor contract
     function _lzReceive(Origin calldata, bytes32, bytes calldata payload, address, bytes calldata)
         internal
         override
         nonReentrant
     {
-        (Order memory order, uint64 orderNonce, string memory fundingWalletStr) =
-            abi.decode(payload, (Order, uint64, string));
+        (
+            Order memory order,
+            uint64 orderNonce,
+            uint64 maxGas,
+            bytes32 hubFundingWallet,
+            bytes32 spokeFundingWallet,
+            bytes memory returnOptions
+        ) = abi.decode(payload, (Order, uint64, uint64, bytes32, bytes32, bytes));
 
         bytes32 orderId = getOrderId(order, orderNonce);
+
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled();
+        uint64 currentTime = uint64(block.timestamp);
+        if (currentTime > order.deadline) revert OrderExpired();
+
         orders[orderId] = Status.FILLED;
 
-        address fundingWallet = Strings.parseAddress(fundingWalletStr);
+        address fundingWallet = BytesUtils.bytes32ToAddress(hubFundingWallet);
 
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
-            address tokenAddress = Strings.parseAddress(input.tokenAddress);
+            address tokenAddress = BytesUtils.bytes32ToAddress(input.tokenAddress);
             _transfer(input.tokenType, address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
         }
 
-        emit OrderFilled(orderId);
+        bytes memory data = abi.encode(order, orderNonce, maxGas, spokeFundingWallet);
+        MessagingReceipt memory receipt =
+            _lzSend(order.destinationChainEid, data, returnOptions, MessagingFee(msg.value, 0), payable(fundingWallet));
+
+        emit OrderFilled(orderId, order, receipt);
     }
 
     function _checkOrderValidity(Order memory order, bytes[] memory permits, bytes memory signature) internal view {

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {
     IOAppOptionsType3, EnforcedOptionParam
 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
@@ -13,6 +12,7 @@ import {OFTMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol
 import {OFTComposeMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import {BytesUtils} from "../src/libraries/BytesUtils.sol";
 import {Root} from "../src/Root.sol";
 import {Validator} from "../src/Validator.sol";
 import {OrderHub} from "../src/OrderHub.sol";
@@ -24,6 +24,13 @@ import {SmartContractUser} from "./mocks/SmartContractUser.sol";
 
 contract BaseTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
+
+    struct BuildVars {
+        Root.Token[] inputs;
+        Root.Token[] outputs;
+        uint64 primaryFillerDeadline;
+        uint64 deadline;
+    }
 
     // chain eids
     uint32 public aEid = 1;
@@ -96,20 +103,20 @@ contract BaseTest is TestHelperOz5 {
         Root.Order memory order,
         uint64 orderNonce,
         uint64 maxGas,
-        string memory originFundingWallet,
-        string memory destFundingWallet
+        bytes32 hubFundingWallet,
+        bytes32 spokeFundingWallet
     ) internal view returns (uint256, bytes memory, bytes memory) {
         // Settle
-        bytes memory returnOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // B -> A
-        bytes memory payloadSettle = abi.encode(order, orderNonce, originFundingWallet);
-        uint256 settleFee = spoke.estimateFee(aEid, payloadSettle, returnOptions);
+        bytes memory returnOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // Hub -> Spoke
+        bytes memory payloadSettle = abi.encode(order, orderNonce, maxGas, spokeFundingWallet);
+        uint256 settleFee = hub.estimateFee(bEid, payloadSettle, returnOptions);
 
         // Fill
         bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(2 * 1e8 + maxGas, uint128(settleFee)); // A -> B
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(2 * 1e8 + maxGas, uint128(settleFee)); // Spoke -> Hub
         bytes memory payloadFill =
-            abi.encode(order, orderNonce, maxGas, originFundingWallet, destFundingWallet, returnOptions);
-        uint256 fillFee = hub.estimateFee(bEid, payloadFill, options);
+            abi.encode(order, orderNonce, maxGas, hubFundingWallet, spokeFundingWallet, returnOptions);
+        uint256 fillFee = spoke.estimateFee(aEid, payloadFill, options);
 
         return (fillFee, options, returnOptions);
     }
@@ -124,6 +131,30 @@ contract BaseTest is TestHelperOz5 {
         return request;
     }
 
+    function _formatTokenStructs(address fromToken, uint256 inputAmount, address toToken, uint256 outputAmount)
+        internal
+        pure
+        returns (Root.Token[] memory, Root.Token[] memory)
+    {
+        Root.Token[] memory inputs = new Root.Token[](1);
+        inputs[0] = Root.Token({
+            tokenType: Root.Type.ERC20,
+            tokenAddress: BytesUtils.addressToBytes32(fromToken),
+            tokenId: 0,
+            amount: inputAmount
+        });
+
+        Root.Token[] memory outputs = new Root.Token[](1);
+        outputs[0] = Root.Token({
+            tokenType: Root.Type.ERC20,
+            tokenAddress: BytesUtils.addressToBytes32(toToken),
+            tokenId: 0,
+            amount: outputAmount
+        });
+
+        return (inputs, outputs);
+    }
+
     function buildOrder(
         address user,
         address filler,
@@ -136,35 +167,24 @@ contract BaseTest is TestHelperOz5 {
         address callRecipient,
         bytes memory callData
     ) public view returns (Root.Order memory) {
-        // Construct input/output token arrays
-        Root.Token[] memory inputs = new Root.Token[](1);
-        inputs[0] = Root.Token({
-            tokenType: Root.Type.ERC20,
-            tokenAddress: Strings.toChecksumHexString(fromToken),
-            tokenId: 0,
-            amount: inputAmount
-        });
+        BuildVars memory v;
 
-        Root.Token[] memory outputs = new Root.Token[](1);
-        outputs[0] = Root.Token({
-            tokenType: Root.Type.ERC20,
-            tokenAddress: Strings.toChecksumHexString(toToken),
-            tokenId: 0,
-            amount: outputAmount
-        });
+        (v.inputs, v.outputs) = _formatTokenStructs(fromToken, inputAmount, toToken, outputAmount);
 
-        // Build the order struct
+        v.primaryFillerDeadline = uint64(block.timestamp + primaryFillerDeadlineOffset);
+        v.deadline = uint64(block.timestamp + deadlineOffset);
+
         return Root.Order({
-            user: Strings.toChecksumHexString(user),
-            filler: Strings.toChecksumHexString(filler),
-            inputs: inputs,
-            outputs: outputs,
+            user: BytesUtils.addressToBytes32(user),
+            filler: BytesUtils.addressToBytes32(filler),
+            inputs: v.inputs,
+            outputs: v.outputs,
             sourceChainEid: aEid,
             destinationChainEid: bEid,
             sponsored: false,
-            primaryFillerDeadline: uint64(block.timestamp + primaryFillerDeadlineOffset),
-            deadline: uint64(block.timestamp + deadlineOffset),
-            callRecipient: Strings.toChecksumHexString(callRecipient),
+            primaryFillerDeadline: v.primaryFillerDeadline,
+            deadline: v.deadline,
+            callRecipient: BytesUtils.addressToBytes32(callRecipient),
             callData: callData
         });
     }
@@ -202,6 +222,16 @@ contract BaseTest is TestHelperOz5 {
         // Executor contract is empty
         assertEq(inputToken.balanceOf(address(spoke)), 0, "OrderSpoke contract is not empty");
         assertEq(outputToken.balanceOf(address(spoke)), 0, "OrderSpoke contract is not empty");
+    }
+
+    function fillOrder(Root.Order memory order, uint64 nonce, uint64 maxGas, address filler) public {
+        bytes32 fillerEncoded = BytesUtils.addressToBytes32(filler);
+
+        (uint256 fee, bytes memory options, bytes memory returnOptions) =
+            _getLzData(order, nonce, maxGas, fillerEncoded, fillerEncoded);
+        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, fillerEncoded, maxGas, options, returnOptions);
+        verifyPackets(aEid, BytesUtils.addressToBytes32(address(hub)));
+        verifyPackets(bEid, BytesUtils.addressToBytes32(address(spoke)));
     }
 }
 

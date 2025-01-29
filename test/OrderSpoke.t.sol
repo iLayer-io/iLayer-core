@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Root} from "../src/Root.sol";
 import {OrderHub} from "../src/OrderHub.sol";
 import {OrderSpoke} from "../src/OrderSpoke.sol";
+import {BytesUtils} from "../src/libraries/BytesUtils.sol";
 import {BaseTest} from "./BaseTest.sol";
 
 contract TargetContract {
@@ -54,12 +54,7 @@ contract OrderSpokeTest is BaseTest {
         outputToken.mint(filler, outputAmount);
         outputToken.approve(address(spoke), outputAmount);
 
-        string memory fillerStr = Strings.toChecksumHexString(filler);
-        (uint256 fee, bytes memory options, bytes memory returnOptions) =
-            _getLzData(order, nonce, 0, fillerStr, fillerStr);
-        hub.fillOrder{value: fee}(order, nonce, fillerStr, fillerStr, 0, options, returnOptions);
-        verifyPackets(bEid, addressToBytes32(address(spoke)));
-        verifyPackets(aEid, addressToBytes32(address(hub)));
+        fillOrder(order, nonce, 0, filler);
 
         validateOrderWasFilled(user0, filler, inputAmount, outputAmount);
         vm.stopPrank();

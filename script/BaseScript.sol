@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Root} from "../src/Root.sol";
 import {OrderHub} from "../src/OrderHub.sol";
 import {OrderSpoke} from "../src/OrderSpoke.sol";
+import {BytesUtils} from "../src/libraries/BytesUtils.sol";
 
 contract BaseScript is Script {
     OrderHub public hub = OrderHub(vm.envAddress("HUB_ADDRESS"));
@@ -34,7 +34,7 @@ contract BaseScript is Script {
         Root.Token[] memory inputs = new Root.Token[](1);
         inputs[0] = Root.Token({
             tokenType: Root.Type.ERC20,
-            tokenAddress: Strings.toChecksumHexString(fromToken),
+            tokenAddress: BytesUtils.addressToBytes32(fromToken),
             tokenId: 0,
             amount: inputAmount
         });
@@ -42,14 +42,14 @@ contract BaseScript is Script {
         Root.Token[] memory outputs = new Root.Token[](1);
         outputs[0] = Root.Token({
             tokenType: Root.Type.ERC20,
-            tokenAddress: Strings.toChecksumHexString(toToken),
+            tokenAddress: BytesUtils.addressToBytes32(toToken),
             tokenId: 0,
             amount: outputAmount
         });
 
         return Root.Order({
-            user: Strings.toChecksumHexString(user),
-            filler: Strings.toChecksumHexString(filler),
+            user: BytesUtils.addressToBytes32(user),
+            filler: BytesUtils.addressToBytes32(filler),
             inputs: inputs,
             outputs: outputs,
             sourceChainEid: uint32(sourceEid),
@@ -57,7 +57,7 @@ contract BaseScript is Script {
             sponsored: false,
             primaryFillerDeadline: uint64(block.timestamp + fillerDeadlineOffset),
             deadline: uint64(block.timestamp + mainDeadlineOffset),
-            callRecipient: Strings.toChecksumHexString(address(0)),
+            callRecipient: BytesUtils.addressToBytes32(address(0)),
             callData: ""
         });
     }
