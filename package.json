@@ -6,6 +6,8 @@
   "scripts": {
     "clean": "rm -rf artifacts cache out",
     "compile": "forge build",
+    "coverage": "forge coverage --ir-minimum 200",
+    "coverage:report": "forge coverage --ir-minimum 200 --report lcov",
     "lint": "solhint 'src/**/*.sol'",
     "test": "forge test"
   },

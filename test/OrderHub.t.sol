@@ -9,13 +9,6 @@ import {BaseTest} from "./BaseTest.sol";
 contract OrderHubTest is BaseTest {
     constructor() BaseTest() {}
 
-    function testHubSetup() external {
-        assertEq(hub.owner(), address(this));
-        assertEq(address(hub.endpoint()), address(endpoints[aEid]));
-
-        /// TODO add l0 base config tests
-    }
-
     function testCreateOrder(uint256 inputAmount, uint256 outputAmount) public returns (Root.Order memory) {
         Root.Order memory order = buildOrder(
             user0,
@@ -25,9 +18,7 @@ contract OrderHubTest is BaseTest {
             address(outputToken),
             outputAmount,
             1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -49,16 +40,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 1 minutes, 5 minutes
         );
 
         bytes memory signature = buildSignature(order, user0_pk);
@@ -136,16 +118,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -162,16 +135,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -191,16 +155,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            6 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 6 minutes, 5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -217,16 +172,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -246,16 +192,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -272,16 +209,7 @@ contract OrderHubTest is BaseTest {
         uint256 inputAmount = 1e18;
 
         Root.Order memory order = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount, address(outputToken), 1, 1 minutes, 5 minutes
         );
 
         vm.prank(user0);
@@ -295,30 +223,12 @@ contract OrderHubTest is BaseTest {
         vm.assume(inputAmount2 > 0);
 
         Root.Order memory order1 = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount1,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount1, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature1 = buildSignature(order1, user0_pk);
 
         Root.Order memory order2 = buildOrder(
-            user0,
-            address(this),
-            address(inputToken),
-            inputAmount2,
-            address(outputToken),
-            2,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, address(this), address(inputToken), inputAmount2, address(outputToken), 2, 1 minutes, 5 minutes
         );
         bytes memory signature2 = buildSignature(order2, user0_pk);
 
@@ -343,30 +253,12 @@ contract OrderHubTest is BaseTest {
         vm.assume(inputAmount2 > 0);
 
         Root.Order memory order1 = buildOrder(
-            user1,
-            address(this),
-            address(inputToken),
-            inputAmount1,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user1, address(this), address(inputToken), inputAmount1, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature1 = buildSignature(order1, user1_pk);
 
         Root.Order memory order2 = buildOrder(
-            user2,
-            address(this),
-            address(inputToken),
-            inputAmount2,
-            address(outputToken),
-            1,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user2, address(this), address(inputToken), inputAmount2, address(outputToken), 1, 1 minutes, 5 minutes
         );
         bytes memory signature2 = buildSignature(order2, user2_pk);
 

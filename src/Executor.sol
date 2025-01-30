@@ -15,6 +15,7 @@ contract Executor {
 
     function exec(address target, uint256 gas, uint256 value, uint16 maxCopy, bytes memory data)
         external
+        payable
         returns (bool)
     {
         (bool res,) = target.excessivelySafeCall(gas, value, maxCopy, data);

@@ -27,16 +27,7 @@ contract OrderSpokeTest is BaseTest {
 
         // 1. Build and verify order
         Root.Order memory order = buildOrder(
-            user0,
-            filler,
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            outputAmount,
-            1 minutes,
-            5 minutes,
-            address(0),
-            ""
+            user0, filler, address(inputToken), inputAmount, address(outputToken), outputAmount, 1 minutes, 5 minutes
         );
         bytes memory signature = buildSignature(order, user0_pk);
 
@@ -54,7 +45,7 @@ contract OrderSpokeTest is BaseTest {
         outputToken.mint(filler, outputAmount);
         outputToken.approve(address(spoke), outputAmount);
 
-        fillOrder(order, nonce, 0, filler);
+        fillOrder(order, nonce, 0, 0, filler);
 
         validateOrderWasFilled(user0, filler, inputAmount, outputAmount);
         vm.stopPrank();

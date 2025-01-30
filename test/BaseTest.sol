@@ -99,26 +99,16 @@ contract BaseTest is TestHelperOz5 {
         hub.setMaxOrderDeadline(1 days);
     }
 
-    function _getLzData(
-        Root.Order memory order,
-        uint64 orderNonce,
-        uint64 maxGas,
-        bytes32 hubFundingWallet,
-        bytes32 spokeFundingWallet
-    ) internal view returns (uint256, bytes memory, bytes memory) {
-        // Settle
-        bytes memory returnOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // Hub -> Spoke
-        bytes memory payloadSettle = abi.encode(order, orderNonce, maxGas, spokeFundingWallet);
-        uint256 settleFee = hub.estimateFee(bEid, payloadSettle, returnOptions);
+    function _getLzData(Root.Order memory order, uint64 orderNonce, bytes32 hubFundingWallet)
+        internal
+        view
+        returns (uint256, bytes memory)
+    {
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // Hub -> Spoke
+        bytes memory payload = abi.encode(order, orderNonce, hubFundingWallet);
+        uint256 fee = spoke.estimateFee(aEid, payload, options);
 
-        // Fill
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(2 * 1e8 + maxGas, uint128(settleFee)); // Spoke -> Hub
-        bytes memory payloadFill =
-            abi.encode(order, orderNonce, maxGas, hubFundingWallet, spokeFundingWallet, returnOptions);
-        uint256 fillFee = spoke.estimateFee(aEid, payloadFill, options);
-
-        return (fillFee, options, returnOptions);
+        return (fee, options);
     }
 
     function buildOrderRequest(Root.Order memory order, uint64 nonce)
@@ -163,9 +153,7 @@ contract BaseTest is TestHelperOz5 {
         address toToken,
         uint256 outputAmount,
         uint256 primaryFillerDeadlineOffset,
-        uint256 deadlineOffset,
-        address callRecipient,
-        bytes memory callData
+        uint256 deadlineOffset
     ) public view returns (Root.Order memory) {
         BuildVars memory v;
 
@@ -184,8 +172,8 @@ contract BaseTest is TestHelperOz5 {
             sponsored: false,
             primaryFillerDeadline: v.primaryFillerDeadline,
             deadline: v.deadline,
-            callRecipient: BytesUtils.addressToBytes32(callRecipient),
-            callData: callData
+            callRecipient: "",
+            callData: ""
         });
     }
 
@@ -224,14 +212,14 @@ contract BaseTest is TestHelperOz5 {
         assertEq(outputToken.balanceOf(address(spoke)), 0, "OrderSpoke contract is not empty");
     }
 
-    function fillOrder(Root.Order memory order, uint64 nonce, uint64 maxGas, address filler) public {
+    function fillOrder(Root.Order memory order, uint64 nonce, uint256 maxGas, uint256 gasValue, address filler)
+        public
+    {
         bytes32 fillerEncoded = BytesUtils.addressToBytes32(filler);
 
-        (uint256 fee, bytes memory options, bytes memory returnOptions) =
-            _getLzData(order, nonce, maxGas, fillerEncoded, fillerEncoded);
-        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, fillerEncoded, maxGas, options, returnOptions);
+        (uint256 fee, bytes memory options) = _getLzData(order, nonce, fillerEncoded);
+        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, fillerEncoded, maxGas, gasValue, options);
         verifyPackets(aEid, BytesUtils.addressToBytes32(address(hub)));
-        verifyPackets(bEid, BytesUtils.addressToBytes32(address(spoke)));
     }
 }
 

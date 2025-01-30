@@ -14,9 +14,8 @@ contract CreateOrderScript is BaseScript {
         bytes[] memory permits = new bytes[](1);
         bytes memory signature = buildSignature(order);
 
-        MockERC20 token = MockERC20(fromToken);
-        token.approve(address(hub), inputAmount);
-        token.mint(user, inputAmount);
+        inputToken.approve(address(hub), inputAmount);
+        inputToken.mint(user, inputAmount);
 
         OrderHub.OrderRequest memory request =
             OrderHub.OrderRequest({order: order, deadline: uint64(block.timestamp + 1 days), nonce: 1});
