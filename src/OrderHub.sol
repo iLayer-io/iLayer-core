@@ -161,7 +161,7 @@ contract OrderHub is Validator, ReentrancyGuard, OAppReceiver, IERC165, IERC721R
         override
         nonReentrant
     {
-        (Order memory order, uint64 orderNonce, bytes32 hubFundingWallet) =
+        (Order memory order, uint64 orderNonce, bytes32 fundingWallet) =
             abi.decode(payload, (Order, uint64, bytes32));
 
         bytes32 orderId = getOrderId(order, orderNonce);
@@ -169,12 +169,12 @@ contract OrderHub is Validator, ReentrancyGuard, OAppReceiver, IERC165, IERC721R
         if (orders[orderId] != Status.ACTIVE) revert OrderCannotBeFilled(); // this should never happen
         orders[orderId] = Status.FILLED;
 
-        address fundingWallet = BytesUtils.bytes32ToAddress(hubFundingWallet);
+        address fundingWalletDecoded = BytesUtils.bytes32ToAddress(fundingWallet);
         for (uint256 i = 0; i < order.inputs.length; i++) {
             Token memory input = order.inputs[i];
 
             address tokenAddress = BytesUtils.bytes32ToAddress(input.tokenAddress);
-            _transfer(input.tokenType, address(this), fundingWallet, tokenAddress, input.tokenId, input.amount);
+            _transfer(input.tokenType, address(this), fundingWalletDecoded, tokenAddress, input.tokenId, input.amount);
         }
 
         emit OrderSettled(orderId, order);

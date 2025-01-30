@@ -19,7 +19,7 @@ contract FillOrderScript is BaseScript {
 
         bytes32 fillerEncoded = BytesUtils.addressToBytes32(filler);
         (uint256 fee, bytes memory options) = _getLzData(order, nonce, fillerEncoded);
-        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, fillerEncoded, maxGas, 0, options);
+        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, maxGas, 0, options);
     }
 
     function _getLzData(Root.Order memory order, uint64 orderNonce, bytes32 hubFundingWallet)

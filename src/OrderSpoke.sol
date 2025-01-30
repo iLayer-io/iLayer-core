@@ -22,6 +22,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
     mapping(bytes32 => bool) public ordersFilled;
 
     event OrderFilled(bytes32 indexed orderId, Order indexed order, address indexed caller, MessagingReceipt receipt);
+    event TokenSweep(address indexed token, address indexed caller, uint256 amount);
 
     error OrderCannotBeFilled();
     error OrderExpired();
@@ -32,6 +33,14 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
         executor = new Executor();
     }
 
+    function sweep(address to, address token) external onlyOwner {
+        IERC20 spuriousToken = IERC20(token);
+        uint256 amount = spuriousToken.balanceOf(address(this));
+        spuriousToken.safeTransfer(to, amount);
+
+        emit TokenSweep(to, token, amount);
+    }
+
     function estimateFee(uint32 dstEid, bytes memory payload, bytes calldata options) public view returns (uint256) {
         MessagingFee memory fee = _quote(dstEid, payload, options, false);
         return fee.nativeFee;
@@ -40,8 +49,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
     function fillOrder(
         Order memory order,
         uint64 orderNonce,
-        bytes32 hubFundingWallet,
-        bytes32 spokeFundingWallet,
+        bytes32 fundingWallet,
         uint256 maxGas,
         uint256 gasValue,
         bytes calldata options
@@ -49,7 +57,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
         bytes32 orderId = getOrderId(order, orderNonce);
 
         _validateOrder(order, orderId);
-        _transferFunds(order, spokeFundingWallet);
+        _transferFunds(order);
 
         if (order.callData.length > 0) {
             _callHook(order, maxGas, gasValue);
@@ -57,7 +65,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
 
         ordersFilled[orderId] = true;
 
-        bytes memory payload = abi.encode(order, orderNonce, hubFundingWallet);
+        bytes memory payload = abi.encode(order, orderNonce, fundingWallet);
         MessagingReceipt memory receipt =
             _lzSend(order.sourceChainEid, payload, options, MessagingFee(msg.value, 0), payable(msg.sender));
 
@@ -84,19 +92,15 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
         if (!successful) revert ExternalCallFailed();
     }
 
-    function _transferFunds(Order memory order, bytes32 spokeFundingWallet) internal {
-        address from = BytesUtils.bytes32ToAddress(spokeFundingWallet);
+    function _transferFunds(Order memory order) internal {
         address to = BytesUtils.bytes32ToAddress(order.user);
-
-        for (uint256 i = 0; i < order.outputs.length;) {
+        for (uint256 i = 0; i < order.outputs.length; i++) {
             Token memory output = order.outputs[i];
 
             address tokenAddress = BytesUtils.bytes32ToAddress(output.tokenAddress);
-            _transfer(output.tokenType, from, to, tokenAddress, output.tokenId, output.amount);
+            _transfer(output.tokenType, address(this), to, tokenAddress, output.tokenId, output.amount);
 
-            unchecked {
-                i++;
-            }
+            uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
         }
     }
 }

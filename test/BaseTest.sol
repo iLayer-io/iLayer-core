@@ -218,7 +218,7 @@ contract BaseTest is TestHelperOz5 {
         bytes32 fillerEncoded = BytesUtils.addressToBytes32(filler);
 
         (uint256 fee, bytes memory options) = _getLzData(order, nonce, fillerEncoded);
-        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, fillerEncoded, maxGas, gasValue, options);
+        spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, maxGas, gasValue, options);
         verifyPackets(aEid, BytesUtils.addressToBytes32(address(hub)));
     }
 }

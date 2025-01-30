@@ -43,7 +43,7 @@ contract OrderSpokeTest is BaseTest {
         // 3. Fill order
         vm.startPrank(filler);
         outputToken.mint(filler, outputAmount);
-        outputToken.approve(address(spoke), outputAmount);
+        outputToken.transfer(address(spoke), outputAmount);
 
         fillOrder(order, nonce, 0, 0, filler);
 
