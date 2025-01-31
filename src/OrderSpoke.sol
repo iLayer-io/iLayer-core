@@ -23,6 +23,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
 
     event OrderFilled(bytes32 indexed orderId, Order indexed order, address indexed caller, MessagingReceipt receipt);
     event TokenSweep(address indexed token, address indexed caller, uint256 amount);
+    event PositiveSlippage(bytes32 indexed orderId, uint256 amount, uint256 receivedAmount);
 
     error OrderCannotBeFilled();
     error OrderExpired();
@@ -57,7 +58,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
         bytes32 orderId = getOrderId(order, orderNonce);
 
         _validateOrder(order, orderId);
-        _transferFunds(order);
+        _transferFunds(order, orderId);
 
         if (order.callData.length > 0) {
             _callHook(order, maxGas, gasValue);
@@ -92,15 +93,20 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
         if (!successful) revert ExternalCallFailed();
     }
 
-    function _transferFunds(Order memory order) internal {
+    function _transferFunds(Order memory order, bytes32 orderId) internal {
         address to = BytesUtils.bytes32ToAddress(order.user);
         for (uint256 i = 0; i < order.outputs.length; i++) {
             Token memory output = order.outputs[i];
 
             address tokenAddress = BytesUtils.bytes32ToAddress(output.tokenAddress);
-            _transfer(output.tokenType, address(this), to, tokenAddress, output.tokenId, output.amount);
 
-            /// uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+            if (output.tokenType == Type.ERC20) {
+                uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+                _transfer(output.tokenType, address(this), to, tokenAddress, output.tokenId, balance);
+                if (balance > output.amount) emit PositiveSlippage(orderId, output.amount, balance);
+            } else {
+                _transfer(output.tokenType, address(this), to, tokenAddress, output.tokenId, output.amount);
+            }
         }
     }
 }
