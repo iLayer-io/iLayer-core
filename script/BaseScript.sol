@@ -4,31 +4,18 @@ pragma solidity ^0.8.24;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {
-    IOAppOptionsType3, EnforcedOptionParam
-} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
-import {MessagingFee, MessagingReceipt} from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
-import {OFTMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
-import {OFTComposeMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Root} from "../src/Root.sol";
-import {OrderHub} from "../src/OrderHub.sol";
-import {OrderSpoke} from "../src/OrderSpoke.sol";
+import {OrderHubMock} from "./mocks/OrderHubMock.sol";
+import {OrderSpokeMock} from "./mocks/OrderSpokeMock.sol";
 import {BytesUtils} from "../src/libraries/BytesUtils.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
 
-contract BaseScript is Script, TestHelperOz5 {
-    using OptionsBuilder for bytes;
-
-    OrderHub public hub;
-    OrderSpoke public spoke;
+contract BaseScript is Script {
+    OrderHubMock public hub;
+    OrderSpokeMock public spoke;
     MockERC20 public inputToken;
     MockERC20 public outputToken;
-    uint32 public aEid = 1;
-    uint32 public bEid = 2;
 
     address user = vm.envAddress("USER_ADDRESS");
     uint256 userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
@@ -45,11 +32,8 @@ contract BaseScript is Script, TestHelperOz5 {
     }
 
     function deployContracts() public {
-        this.setUp();
-        setUpEndpoints(2, LibraryType.UltraLightNode);
-
-        hub = OrderHub(_deployOApp(type(OrderHub).creationCode, abi.encode(address(endpoints[aEid]))));
-        spoke = OrderSpoke(_deployOApp(type(OrderSpoke).creationCode, abi.encode(address(endpoints[bEid]))));
+        hub = new OrderHubMock();
+        spoke = new OrderSpokeMock(address(hub));
         console2.log("hub", address(hub));
         console2.log("spoke", address(spoke));
 
@@ -57,20 +41,6 @@ contract BaseScript is Script, TestHelperOz5 {
         outputToken = new MockERC20("output", "OUTPUT");
         console2.log("inputToken", address(inputToken));
         console2.log("outputToken", address(outputToken));
-
-        spoke.setPeer(aEid, BytesUtils.addressToBytes32(address(hub)));
-    }
-
-    function getLzData(Root.Order memory order, uint64 orderNonce, bytes32 hubFundingWallet)
-        public
-        view
-        returns (uint256, bytes memory)
-    {
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // Hub -> Spoke
-        bytes memory payload = abi.encode(order, orderNonce, hubFundingWallet);
-        uint256 fee = spoke.estimateFee(aEid, payload, options);
-
-        return (fee, options);
     }
 
     function buildOrder() public view returns (Root.Order memory) {
@@ -95,8 +65,8 @@ contract BaseScript is Script, TestHelperOz5 {
             filler: BytesUtils.addressToBytes32(filler),
             inputs: inputs,
             outputs: outputs,
-            sourceChainEid: aEid,
-            destinationChainEid: bEid,
+            sourceChainEid: 1,
+            destinationChainEid: 2,
             sponsored: false,
             primaryFillerDeadline: fillerDeadlineOffset,
             deadline: mainDeadlineOffset,
