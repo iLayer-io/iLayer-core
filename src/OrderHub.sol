@@ -161,8 +161,7 @@ contract OrderHub is Validator, ReentrancyGuard, OAppReceiver, IERC165, IERC721R
         override
         nonReentrant
     {
-        (Order memory order, uint64 orderNonce, bytes32 fundingWallet) =
-            abi.decode(payload, (Order, uint64, bytes32));
+        (Order memory order, uint64 orderNonce, bytes32 fundingWallet) = abi.decode(payload, (Order, uint64, bytes32));
 
         bytes32 orderId = getOrderId(order, orderNonce);
 

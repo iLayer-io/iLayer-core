@@ -100,7 +100,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
             address tokenAddress = BytesUtils.bytes32ToAddress(output.tokenAddress);
             _transfer(output.tokenType, address(this), to, tokenAddress, output.tokenId, output.amount);
 
-            uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+            /// uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
         }
     }
 }

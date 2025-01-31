@@ -21,6 +21,8 @@ import {BytesUtils} from "../src/libraries/BytesUtils.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
 
 contract BaseScript is Script, TestHelperOz5 {
+    using OptionsBuilder for bytes;
+
     OrderHub public hub;
     OrderSpoke public spoke;
     MockERC20 public inputToken;
@@ -38,30 +40,37 @@ contract BaseScript is Script, TestHelperOz5 {
     uint64 mainDeadlineOffset = uint64(vm.envUint("MAIN_DEADLINE_OFFSET"));
 
     constructor() {
+        fillerDeadlineOffset += uint64(block.timestamp);
+        mainDeadlineOffset += uint64(block.timestamp);
+    }
+
+    function deployContracts() public {
+        this.setUp();
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
         hub = OrderHub(_deployOApp(type(OrderHub).creationCode, abi.encode(address(endpoints[aEid]))));
         spoke = OrderSpoke(_deployOApp(type(OrderSpoke).creationCode, abi.encode(address(endpoints[bEid]))));
+        console2.log("hub", address(hub));
+        console2.log("spoke", address(spoke));
 
         inputToken = new MockERC20("input", "INPUT");
         outputToken = new MockERC20("output", "OUTPUT");
         console2.log("inputToken", address(inputToken));
         console2.log("outputToken", address(outputToken));
 
-        fillerDeadlineOffset += uint64(block.timestamp);
-        mainDeadlineOffset += uint64(block.timestamp);
+        spoke.setPeer(aEid, BytesUtils.addressToBytes32(address(hub)));
     }
 
-    modifier broadcastTx(uint256 key) {
-        this.setUp();
-        address[] memory oapps = new address[](2);
-        oapps[0] = address(hub);
-        oapps[1] = address(spoke);
-        this.wireOApps(oapps);
+    function getLzData(Root.Order memory order, uint64 orderNonce, bytes32 hubFundingWallet)
+        public
+        view
+        returns (uint256, bytes memory)
+    {
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1e8, 0); // Hub -> Spoke
+        bytes memory payload = abi.encode(order, orderNonce, hubFundingWallet);
+        uint256 fee = spoke.estimateFee(aEid, payload, options);
 
-        vm.startBroadcast(key);
-        _;
-        vm.stopBroadcast();
+        return (fee, options);
     }
 
     function buildOrder() public view returns (Root.Order memory) {
@@ -91,7 +100,7 @@ contract BaseScript is Script, TestHelperOz5 {
             sponsored: false,
             primaryFillerDeadline: fillerDeadlineOffset,
             deadline: mainDeadlineOffset,
-            callRecipient: BytesUtils.addressToBytes32(address(0)),
+            callRecipient: "",
             callData: ""
         });
     }
