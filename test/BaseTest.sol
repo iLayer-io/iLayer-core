@@ -182,7 +182,7 @@ contract BaseTest is TestHelperOz5 {
         bytes32 structHash = hub.hashOrder(order);
 
         // Compute the EIP-712 domain separator as the contract does
-        bytes32 domainSeparator = hub.DOMAIN_SEPARATOR();
+        bytes32 domainSeparator = hub.domainSeparator();
 
         // Create the EIP-712 typed data hash
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));

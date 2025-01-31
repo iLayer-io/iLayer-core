@@ -107,7 +107,7 @@ contract BaseScript is Script, TestHelperOz5 {
 
     function buildSignature(Root.Order memory order) public view returns (bytes memory) {
         bytes32 structHash = hub.hashOrder(order);
-        bytes32 domainSeparator = hub.DOMAIN_SEPARATOR();
+        bytes32 domainSeparator = hub.domainSeparator();
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
         return abi.encodePacked(r, s, v);
