@@ -11,7 +11,7 @@ contract FillOrderScript is BaseScript {
     function run() external {
         vm.startBroadcast(fillerPrivateKey);
 
-        deployContracts();
+        setupContracts();
 
         uint64 nonce = 1;
         Root.Order memory order = buildOrder();

@@ -5,6 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Root} from "../src/Root.sol";
 import {OrderHubMock} from "./mocks/OrderHubMock.sol";
 import {OrderSpokeMock} from "./mocks/OrderSpokeMock.sol";
@@ -34,13 +35,24 @@ contract BaseScript is Script {
     function deployContracts() public {
         hub = new OrderHubMock();
         spoke = new OrderSpokeMock(address(hub));
+        vm.setEnv("HUB_ADDRESS", Strings.toChecksumHexString(address(hub)));
+        vm.setEnv("SPOKE_ADDRESS", Strings.toChecksumHexString(address(spoke)));
         console2.log("hub", address(hub));
         console2.log("spoke", address(spoke));
 
         inputToken = new MockERC20("input", "INPUT");
         outputToken = new MockERC20("output", "OUTPUT");
+        vm.setEnv("INPUT_TOKEN_ADDRESS", Strings.toChecksumHexString(address(inputToken)));
+        vm.setEnv("OUTPUT_TOKEN_ADDRESS", Strings.toChecksumHexString(address(outputToken)));
         console2.log("inputToken", address(inputToken));
         console2.log("outputToken", address(outputToken));
+    }
+
+    function setupContracts() public {
+        hub = OrderHubMock(vm.envAddress("HUB_ADDRESS"));
+        spoke = OrderSpokeMock(vm.envAddress("SPOKE_ADDRESS"));
+        inputToken = MockERC20(vm.envAddress("INPUT_TOKEN_ADDRESS"));
+        outputToken = MockERC20(vm.envAddress("OUTPUT_TOKEN_ADDRESS"));
     }
 
     function buildOrder() public view returns (Root.Order memory) {

@@ -10,7 +10,7 @@ contract CreateOrderScript is BaseScript {
     function run() external {
         vm.startBroadcast(userPrivateKey);
 
-        deployContracts();
+        setupContracts();
 
         Root.Order memory order = buildOrder();
 
