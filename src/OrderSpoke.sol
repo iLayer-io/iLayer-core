@@ -102,6 +102,7 @@ contract OrderSpoke is Root, ReentrancyGuard, OAppSender {
 
             if (output.tokenType == Type.ERC20) {
                 uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+                if (balance < output.amount) revert OrderCannotBeFilled();
                 _transfer(output.tokenType, address(this), to, tokenAddress, output.tokenId, balance);
                 if (balance > output.amount) emit PositiveSlippage(orderId, output.amount, balance);
             } else {
