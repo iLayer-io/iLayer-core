@@ -221,97 +221,92 @@ contract BaseTest is TestHelperOz5 {
         spoke.fillOrder{value: fee}(order, nonce, fillerEncoded, maxGas, gasValue, options);
         verifyPackets(aEid, BytesUtils.addressToBytes32(address(hub)));
     }
-}
-
-/*
 
     function buildERC721Order(
-        address filler,
-        uint256 tokenId,
-        uint256 outputAmount,
         address user,
-        address fromToken,
-        address toToken,
-        uint256 primaryFillerDeadlineOffset,
-        uint256 deadlineOffset,
-        address callRecipient,
-        bytes memory callData
-    ) public view returns (Validator.Order memory) {
-        // Construct input/output token arrays
-        Validator.Token[] memory inputs = new Validator.Token[](1);
-        inputs[0] = Validator.Token({
-            tokenType: Validator.Type.ERC721,
-            tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
-            tokenId: tokenId,
-            amount: 1
-        });
-
-        Validator.Token[] memory outputs = new Validator.Token[](1);
-        outputs[0] = Validator.Token({
-            tokenType: Validator.Type.ERC20,
-            tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
-            tokenId: type(uint256).max,
-            amount: outputAmount
-        });
-
-        // Build the order struct
-        return Validator.Order({
-            user: iLayerCCMLibrary.addressToBytes64(user),
-            filler: iLayerCCMLibrary.addressToBytes64(filler),
-            inputs: inputs,
-            outputs: outputs,
-            sourceChainSelector: block.chainid,
-            destinationChainSelector: block.chainid,
-            sponsored: false,
-            primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
-            deadline: block.timestamp + deadlineOffset,
-            callRecipient: iLayerCCMLibrary.addressToBytes64(callRecipient),
-            callData: callData
-        });
-    }
-
-    function buildERC1155Order(
         address filler,
+        address fromToken,
+        uint256 fromTokenId,
         uint256 inputAmount,
-        uint256 outputAmount,
-        address user,
-        address fromToken,
         address toToken,
+        uint256 outputAmount,
         uint256 primaryFillerDeadlineOffset,
-        uint256 deadlineOffset,
-        address callRecipient,
-        bytes memory callData
+        uint256 deadlineOffset
     ) public view returns (Validator.Order memory) {
         // Construct input/output token arrays
         Validator.Token[] memory inputs = new Validator.Token[](1);
-        inputs[0] = Validator.Token({
-            tokenType: Validator.Type.ERC1155,
-            tokenAddress: iLayerCCMLibrary.addressToBytes64(fromToken),
-            tokenId: 1,
+        inputs[0] = Root.Token({
+            tokenType: Root.Type.ERC721,
+            tokenAddress: BytesUtils.addressToBytes32(fromToken),
+            tokenId: fromTokenId,
             amount: inputAmount
         });
 
         Validator.Token[] memory outputs = new Validator.Token[](1);
-        outputs[0] = Validator.Token({
-            tokenType: Validator.Type.ERC20,
-            tokenAddress: iLayerCCMLibrary.addressToBytes64(toToken),
+        outputs[0] = Root.Token({
+            tokenType: Root.Type.ERC20,
+            tokenAddress: BytesUtils.addressToBytes32(toToken),
             tokenId: type(uint256).max,
             amount: outputAmount
         });
 
         // Build the order struct
-        return Validator.Order({
-            user: iLayerCCMLibrary.addressToBytes64(user),
-            filler: iLayerCCMLibrary.addressToBytes64(filler),
+        return Root.Order({
+            user: BytesUtils.addressToBytes32(user),
+            filler: BytesUtils.addressToBytes32(filler),
             inputs: inputs,
             outputs: outputs,
-            sourceChainSelector: block.chainid,
-            destinationChainSelector: block.chainid,
+            sourceChainEid: uint32(block.chainid),
+            destinationChainEid: uint32(block.chainid),
             sponsored: false,
-            primaryFillerDeadline: block.timestamp + primaryFillerDeadlineOffset,
-            deadline: block.timestamp + deadlineOffset,
-            callRecipient: iLayerCCMLibrary.addressToBytes64(callRecipient),
-            callData: callData
+            primaryFillerDeadline: uint64(block.timestamp + primaryFillerDeadlineOffset),
+            deadline: uint64(block.timestamp + deadlineOffset),
+            callRecipient: "",
+            callData: ""
         });
     }
-*/
+
+    function buildERC1155Order(
+        address user,
+        address filler,
+        address fromToken,
+        uint256 fromTokenId,
+        uint256 inputAmount,
+        address toToken,
+        uint256 outputAmount,
+        uint256 primaryFillerDeadlineOffset,
+        uint256 deadlineOffset
+    ) public view returns (Validator.Order memory) {
+        // Construct input/output token arrays
+        Validator.Token[] memory inputs = new Validator.Token[](1);
+        inputs[0] = Root.Token({
+            tokenType: Root.Type.ERC1155,
+            tokenAddress: BytesUtils.addressToBytes32(fromToken),
+            tokenId: fromTokenId,
+            amount: inputAmount
+        });
+
+        Validator.Token[] memory outputs = new Validator.Token[](1);
+        outputs[0] = Root.Token({
+            tokenType: Root.Type.ERC20,
+            tokenAddress: BytesUtils.addressToBytes32(toToken),
+            tokenId: type(uint256).max,
+            amount: outputAmount
+        });
+
+        // Build the order struct
+        return Root.Order({
+            user: BytesUtils.addressToBytes32(user),
+            filler: BytesUtils.addressToBytes32(filler),
+            inputs: inputs,
+            outputs: outputs,
+            sourceChainEid: uint32(block.chainid),
+            destinationChainEid: uint32(block.chainid),
+            sponsored: false,
+            primaryFillerDeadline: uint64(block.timestamp + primaryFillerDeadlineOffset),
+            deadline: uint64(block.timestamp + deadlineOffset),
+            callRecipient: "",
+            callData: ""
+        });
+    }
+}
